@@ -16,7 +16,7 @@ use ipc::AppState;
 fn main() {
     env_logger::init();
     
-    let engine = AudioEngine::new();
+    let mut engine = AudioEngine::new();
     if let Err(e) = engine.init() {
         log::error!("Failed to initialize audio engine: {}", e);
     }

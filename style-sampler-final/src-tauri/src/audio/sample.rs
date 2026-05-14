@@ -1,5 +1,4 @@
 use anyhow::Result;
-use symphonia::core::audio::Signal;
 use symphonia::core::codecs::DecoderOptions;
 use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::MediaSourceStream;
@@ -48,16 +47,16 @@ impl SampleManager {
 
         let mut format = probed.format;
         let track = format.default_track().ok_or_else(|| anyhow::anyhow!("No default track"))?;
+        let track_id = track.id;
+        let sample_rate_val = track.codec_params.sample_rate.unwrap_or(44100);
         let decoder_opts = DecoderOptions::default();
 
         let mut decoder = symphonia::default::get_codecs()
             .make(&track.codec_params, &decoder_opts)?;
 
         let mut all_samples: Vec<f32> = Vec::new();
-        let mut sample_rate = 44100u32;
+        let mut sample_rate = sample_rate_val;
         let mut channels = 2u16;
-
-        let track_id = track.id;
         
         loop {
             let packet = match format.next_packet() {
@@ -73,10 +72,6 @@ impl SampleManager {
                 Ok(d) => d,
                 Err(_) => continue,
             };
-
-            if sample_rate == 44100 {
-                sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
-            }
 
             match decoded {
                 symphonia::core::audio::AudioBufferRef::F32(buf) => {

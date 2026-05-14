@@ -1,11 +1,11 @@
 use anyhow::Result;
+use symphonia::core::audio::Signal;
 use symphonia::core::codecs::DecoderOptions;
 use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 use std::fs::File;
-use std::io::BufReader;
 use std::path::Path;
 use std::sync::Arc;
 use parking_lot::RwLock;
@@ -34,7 +34,7 @@ impl SampleManager {
         }
 
         let file = File::open(path)?;
-        let mss = MediaSourceStream::new(Box::new(BufReader::new(file)), Default::default());
+        let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
         let mut hint = Hint::new();
         if let Some(ext) = path.extension() {
@@ -80,17 +80,18 @@ impl SampleManager {
 
             match decoded {
                 symphonia::core::audio::AudioBufferRef::F32(buf) => {
-                    channels = buf.channels() as u16;
-                    for frame in buf.frames() {
-                        for sample in frame {
-                            all_samples.push(*sample);
+                    channels = buf.spec().channels.count() as u16;
+                    for plane in buf.planes().planes() {
+                        for &sample in plane.iter() {
+                            all_samples.push(sample);
                         }
                     }
                 }
                 symphonia::core::audio::AudioBufferRef::S16(buf) => {
-                    for frame in buf.frames() {
-                        for sample in frame {
-                            all_samples.push(*sample as f32 / 32768.0);
+                    channels = buf.spec().channels.count() as u16;
+                    for plane in buf.planes().planes() {
+                        for &sample in plane.iter() {
+                            all_samples.push(sample as f32 / 32768.0);
                         }
                     }
                 }

@@ -1,25 +1,25 @@
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, RwLock};
-use parking_lot::RwLock as ParkRwLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use parking_lot::RwLock;
 
 pub struct Playhead {
-    pub position: Arc<ParkRwLock<f32>>,
+    pub position: Arc<RwLock<f32>>,
     pub state: Arc<AtomicBool>,
-    pub speed: Arc<ParkRwLock<f32>>,
-    pub total_duration: Arc<ParkRwLock<f32>>,
+    pub speed: Arc<RwLock<f32>>,
+    pub total_duration: Arc<RwLock<f32>>,
     pub loop_enabled: Arc<AtomicBool>,
-    pub loop_start: Arc<ParkRwLock<f32>>,
+    pub loop_start: Arc<RwLock<f32>>,
 }
 
 impl Playhead {
     pub fn new() -> Self {
         Self {
-            position: Arc::new(ParkRwLock::new(0.0)),
+            position: Arc::new(RwLock::new(0.0)),
             state: Arc::new(AtomicBool::new(false)),
-            speed: Arc::new(ParkRwLock::new(1.0)),
-            total_duration: Arc::new(ParkRwLock::new(8.0)),
+            speed: Arc::new(RwLock::new(1.0)),
+            total_duration: Arc::new(RwLock::new(8.0)),
             loop_enabled: Arc::new(AtomicBool::new(true)),
-            loop_start: Arc::new(ParkRwLock::new(0.0)),
+            loop_start: Arc::new(RwLock::new(0.0)),
         }
     }
 

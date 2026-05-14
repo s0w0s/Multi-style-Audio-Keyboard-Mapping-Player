@@ -43,7 +43,7 @@ impl KeyboardInput {
             (Key::KeyJ, 6),
             (Key::KeyK, 7),
             (Key::KeyL, 8),
-            (Key::Semicolon, 9),
+            (Key::SemiColon, 9),
             (Key::Quote, 10),
         ]
         .iter()
@@ -70,7 +70,7 @@ impl KeyboardInput {
                     _ => {}
                 }
             }) {
-                log::error!("Failed to start keyboard listener: {}", e);
+                log::error!("Failed to start keyboard listener: {:?}", e);
             }
         });
 

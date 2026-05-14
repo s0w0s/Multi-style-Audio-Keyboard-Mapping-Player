@@ -10,7 +10,7 @@ pub struct AudioEngine {
     pub sample_manager: Arc<RwLock<SampleManager>>,
     pub playhead: Arc<Playhead>,
     active_style: Arc<AtomicUsize>,
-    master_volume: Arc<RwLock<f32>>,
+    pub master_volume: Arc<RwLock<f32>>,
     key_pressed: Arc<AtomicBool>,
     pub trigger_mode: Arc<RwLock<TriggerMode>>,
     pub loop_mode: Arc<RwLock<LoopMode>>,
@@ -253,7 +253,7 @@ impl AudioEngine {
         *self.trigger_mode.write() = mode;
     }
 
-    pub fn set_effect_param(&self, effect: &str, param: &str, value: f32) {
+    pub fn set_effect_param(&self, effect: &str, _param: &str, value: f32) {
         match effect {
             "filter" => {
                 self.lowpass.write().set_cutoff(value);

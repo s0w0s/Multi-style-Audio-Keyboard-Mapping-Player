@@ -201,8 +201,8 @@ pub async fn save_preset(
     let preset = serde_json::json!({
         "trigger_mode": format!("{:?}", *engine.trigger_mode.read()),
         "loop_mode": format!("{:?}", *engine.loop_mode.read()),
-        "loop_start": engine.playhead.loop_start.load(std::sync::atomic::Ordering::SeqCst),
-        "volume": engine.master_volume.load(std::sync::atomic::Ordering::SeqCst),
+        "loop_start": *engine.playhead.loop_start.read(),
+        "volume": *engine.master_volume.read(),
     });
     
     std::fs::write(&path, serde_json::to_string_pretty(&preset).unwrap())

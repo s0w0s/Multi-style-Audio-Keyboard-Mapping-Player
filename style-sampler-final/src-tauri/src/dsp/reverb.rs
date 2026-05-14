@@ -12,7 +12,7 @@ pub struct Reverb {
 
 impl Reverb {
     pub fn new(sample_rate: f32) -> Self {
-        let comb_delays = [
+        let comb_delays: Vec<usize> = vec![
             (sample_rate * 0.0297) as usize,
             (sample_rate * 0.0371) as usize,
             (sample_rate * 0.0411) as usize,
@@ -27,7 +27,7 @@ impl Reverb {
         let comb_write_pos = vec![0usize; 4];
         let comb_feedback = vec![0.7f32; 4];
         
-        let allpass_delays = [
+        let allpass_delays: Vec<usize> = vec![
             (sample_rate * 0.0197) as usize,
             (sample_rate * 0.0271) as usize,
             (sample_rate * 0.0311) as usize,

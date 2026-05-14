@@ -1,23 +1,21 @@
-use crate::audio::sample::{SampleManager, Sample};
+use crate::audio::sample::SampleManager;
 use crate::audio::playhead::Playhead;
 use crate::dsp::{LowPassFilter, HighPassFilter, Reverb, Delay, Distortion, Chorus};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::Stream;
 use parking_lot::RwLock;
-use std::sync::atomic::{AtomicBool, AtomicF32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 pub struct AudioEngine {
     pub sample_manager: Arc<RwLock<SampleManager>>,
     pub playhead: Arc<Playhead>,
-    stream: Option<Stream>,
     active_style: Arc<AtomicUsize>,
-    master_volume: Arc<AtomicF32>,
+    master_volume: Arc<RwLock<f32>>,
     key_pressed: Arc<AtomicBool>,
     pub trigger_mode: Arc<RwLock<TriggerMode>>,
     pub loop_mode: Arc<RwLock<LoopMode>>,
     pub transition_type: Arc<RwLock<TransitionType>>,
-    pub transition_time: Arc<AtomicF32>,
+    pub transition_time: Arc<RwLock<f32>>,
     lowpass: Arc<RwLock<LowPassFilter>>,
     highpass: Arc<RwLock<HighPassFilter>>,
     reverb: Arc<RwLock<Reverb>>,
@@ -25,6 +23,9 @@ pub struct AudioEngine {
     distortion: Arc<RwLock<Distortion>>,
     chorus: Arc<RwLock<Chorus>>,
 }
+
+unsafe impl Send for AudioEngine {}
+unsafe impl Sync for AudioEngine {}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TriggerMode {
@@ -54,14 +55,13 @@ impl AudioEngine {
         Self {
             sample_manager: Arc::new(RwLock::new(SampleManager::new())),
             playhead: Arc::new(Playhead::new()),
-            stream: None,
             active_style: Arc::new(AtomicUsize::new(11)),
-            master_volume: Arc::new(AtomicF32::new(0.8)),
+            master_volume: Arc::new(RwLock::new(0.8)),
             key_pressed: Arc::new(AtomicBool::new(false)),
             trigger_mode: Arc::new(RwLock::new(TriggerMode::Gate)),
             loop_mode: Arc::new(RwLock::new(LoopMode::WhilePressed)),
             transition_type: Arc::new(RwLock::new(TransitionType::Crossfade)),
-            transition_time: Arc::new(AtomicF32::new(0.05)),
+            transition_time: Arc::new(RwLock::new(0.05)),
             lowpass: Arc::new(RwLock::new(LowPassFilter::new(10000.0, sample_rate as f32))),
             highpass: Arc::new(RwLock::new(HighPassFilter::new(20.0, sample_rate as f32))),
             reverb: Arc::new(RwLock::new(Reverb::new(sample_rate as f32))),
@@ -115,11 +115,12 @@ impl AudioEngine {
                 
                 if is_playing {
                     let position = playhead.get_position();
+                    let duration = *playhead.total_duration.read();
                     
-                    if position >= playhead.total_duration.load(Ordering::SeqCst) {
+                    if position >= duration {
                         let lm = *loop_mode.read();
                         if lm != LoopMode::Off && key_pressed.load(Ordering::SeqCst) {
-                            playhead.set_position(playhead.loop_start.load(Ordering::SeqCst));
+                            playhead.set_position(*playhead.loop_start.read());
                         } else {
                             playhead.pause();
                         }
@@ -128,7 +129,7 @@ impl AudioEngine {
                     }
                 }
                 
-                let volume = master_volume.load(Ordering::SeqCst);
+                let volume = *master_volume.read();
                 let style = active_style.load(Ordering::SeqCst);
                 
                 let sm = sample_manager.read();
@@ -184,7 +185,6 @@ impl AudioEngine {
         )?;
 
         stream.play()?;
-        self.stream = Some(stream);
         
         log::info!("Audio engine initialized successfully");
         Ok(())
@@ -228,7 +228,7 @@ impl AudioEngine {
     }
 
     pub fn set_volume(&self, volume: f32) {
-        self.master_volume.store(volume.clamp(0.0, 1.0), Ordering::SeqCst);
+        *self.master_volume.write() = volume.clamp(0.0, 1.0);
     }
 
     pub fn set_bpm(&self, _bpm: f32) {}

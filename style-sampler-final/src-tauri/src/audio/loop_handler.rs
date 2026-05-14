@@ -1,18 +1,19 @@
-use std::sync::atomic::{AtomicBool, AtomicF32, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use parking_lot::RwLock;
 
 pub struct LoopHandler {
     enabled: Arc<AtomicBool>,
-    loop_start: Arc<AtomicF32>,
-    loop_end: Arc<AtomicF32>,
+    loop_start: Arc<RwLock<f32>>,
+    loop_end: Arc<RwLock<f32>>,
 }
 
 impl LoopHandler {
     pub fn new() -> Self {
         Self {
             enabled: Arc::new(AtomicBool::new(true)),
-            loop_start: Arc::new(AtomicF32::new(0.0)),
-            loop_end: Arc::new(AtomicF32::new(8.0)),
+            loop_start: Arc::new(RwLock::new(0.0)),
+            loop_end: Arc::new(RwLock::new(8.0)),
         }
     }
 
@@ -24,15 +25,15 @@ impl LoopHandler {
     }
 
     pub fn get_loop_position(&self) -> f32 {
-        self.loop_start.load(Ordering::SeqCst)
+        *self.loop_start.read()
     }
 
     pub fn set_loop_start(&self, start: f32) {
-        self.loop_start.store(start, Ordering::SeqCst);
+        *self.loop_start.write() = start;
     }
 
     pub fn set_loop_end(&self, end: f32) {
-        self.loop_end.store(end, Ordering::SeqCst);
+        *self.loop_end.write() = end;
     }
 
     pub fn set_enabled(&self, enabled: bool) {

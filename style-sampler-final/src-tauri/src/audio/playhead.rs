@@ -1,24 +1,25 @@
-use std::sync::atomic::{AtomicBool, AtomicF32, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, RwLock};
+use parking_lot::RwLock as ParkRwLock;
 
 pub struct Playhead {
-    pub position: Arc<AtomicF32>,
+    pub position: Arc<ParkRwLock<f32>>,
     pub state: Arc<AtomicBool>,
-    pub speed: Arc<AtomicF32>,
-    pub total_duration: Arc<AtomicF32>,
+    pub speed: Arc<ParkRwLock<f32>>,
+    pub total_duration: Arc<ParkRwLock<f32>>,
     pub loop_enabled: Arc<AtomicBool>,
-    pub loop_start: Arc<AtomicF32>,
+    pub loop_start: Arc<ParkRwLock<f32>>,
 }
 
 impl Playhead {
     pub fn new() -> Self {
         Self {
-            position: Arc::new(AtomicF32::new(0.0)),
+            position: Arc::new(ParkRwLock::new(0.0)),
             state: Arc::new(AtomicBool::new(false)),
-            speed: Arc::new(AtomicF32::new(1.0)),
-            total_duration: Arc::new(AtomicF32::new(8.0)),
+            speed: Arc::new(ParkRwLock::new(1.0)),
+            total_duration: Arc::new(ParkRwLock::new(8.0)),
             loop_enabled: Arc::new(AtomicBool::new(true)),
-            loop_start: Arc::new(AtomicF32::new(0.0)),
+            loop_start: Arc::new(ParkRwLock::new(0.0)),
         }
     }
 
@@ -35,16 +36,16 @@ impl Playhead {
     }
 
     pub fn reset(&self) {
-        self.position.store(0.0, Ordering::SeqCst);
+        *self.position.write() = 0.0;
     }
 
     pub fn get_position(&self) -> f32 {
-        self.position.load(Ordering::SeqCst)
+        *self.position.read()
     }
 
     pub fn set_position(&self, pos: f32) {
-        let max = self.total_duration.load(Ordering::SeqCst);
-        self.position.store(pos.max(0.0).min(max), Ordering::SeqCst);
+        let max = *self.total_duration.read();
+        *self.position.write() = pos.max(0.0).min(max);
     }
 
     pub fn advance(&self, delta_seconds: f32) -> bool {
@@ -52,10 +53,10 @@ impl Playhead {
             return false;
         }
 
-        let speed = self.speed.load(Ordering::SeqCst);
-        let current = self.position.load(Ordering::SeqCst);
-        let duration = self.total_duration.load(Ordering::SeqCst);
-        let loop_start = self.loop_start.load(Ordering::SeqCst);
+        let speed = *self.speed.read();
+        let current = *self.position.read();
+        let duration = *self.total_duration.read();
+        let loop_start = *self.loop_start.read();
         let loop_enabled = self.loop_enabled.load(Ordering::SeqCst);
 
         let new_position = current + delta_seconds * speed;
@@ -66,16 +67,16 @@ impl Playhead {
                 if loop_length > 0.0 {
                     let overflow = new_position - duration;
                     let new_pos = loop_start + overflow % loop_length;
-                    self.position.store(new_pos, Ordering::SeqCst);
+                    *self.position.write() = new_pos;
                     return true;
                 }
             }
-            self.position.store(duration, Ordering::SeqCst);
+            *self.position.write() = duration;
             self.pause();
             return false;
         }
 
-        self.position.store(new_position, Ordering::SeqCst);
+        *self.position.write() = new_position;
         true
     }
 
@@ -84,11 +85,11 @@ impl Playhead {
     }
 
     pub fn set_speed(&self, speed: f32) {
-        self.speed.store(speed.clamp(0.5, 2.0), Ordering::SeqCst);
+        *self.speed.write() = speed.clamp(0.5, 2.0);
     }
 
     pub fn set_total_duration(&self, duration: f32) {
-        self.total_duration.store(duration, Ordering::SeqCst);
+        *self.total_duration.write() = duration;
     }
 
     pub fn set_loop_enabled(&self, enabled: bool) {
@@ -96,8 +97,8 @@ impl Playhead {
     }
 
     pub fn set_loop_start(&self, start: f32) {
-        let duration = self.total_duration.load(Ordering::SeqCst);
-        self.loop_start.store(start.clamp(0.0, duration), Ordering::SeqCst);
+        let duration = *self.total_duration.read();
+        *self.loop_start.write() = start.clamp(0.0, duration);
     }
 }
 

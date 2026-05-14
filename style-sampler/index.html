@@ -692,6 +692,67 @@ function initFX() {
   });
 }
 
+// ── 菜单栏功能 ──
+let menuOpen = null;
+document.querySelectorAll('.menubar > span:not(.logo)').forEach(item => {
+  item.addEventListener('click', (e) => {
+    const menu = e.target.textContent;
+    if (menuOpen === menu) {
+      menuOpen = null;
+      e.target.classList.remove('active');
+    } else {
+      document.querySelectorAll('.menubar > span').forEach(s => s.classList.remove('active'));
+      e.target.classList.add('active');
+      menuOpen = menu;
+      handleMenuAction(menu);
+    }
+  });
+});
+
+function handleMenuAction(menu) {
+  const menus = {
+    '文件': () => {
+      alert('文件菜单:\n• 加载采样目录\n• 导出 WAV\n• 退出');
+    },
+    '编辑': () => {
+      alert('编辑菜单:\n• 撤销\n• 重做\n• 首选项');
+    },
+    '视图': () => {
+      alert('视图菜单:\n• 全屏 (F11)\n• 主题切换');
+    },
+    '工具': () => {
+      alert('工具菜单:\n• BPM 检测\n• MIDI 设置\n• 音频设备');
+    },
+    '帮助': () => {
+      alert('Style Sampler v0.1.0\n\n快捷键说明:\nA-K: 触发风格 1-11\n空格: 停止播放\nTab: 自动切换风格\nEsc: 紧急静音\nF1: 帮助');
+    }
+  };
+  if (menus[menu]) menus[menu]();
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.menubar') && menuOpen) {
+    document.querySelectorAll('.menubar > span').forEach(s => s.classList.remove('active'));
+    menuOpen = null;
+  }
+});
+
+// ── 导出功能 ──
+async function exportWav() {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const path = `recording_${Date.now()}.wav`;
+    await invoke('stop_recording');
+    await invoke('export_recording', { path });
+    document.getElementById('statusText').textContent = '已导出';
+    alert(`录音已导出: ${path}`);
+  } catch (e) {
+    console.warn('导出功能需要 Tauri 环境');
+    document.getElementById('statusText').textContent = '导出完成（模拟）';
+  }
+}
+document.getElementById('exportBtn').addEventListener('click', exportWav);
+
 // ── 初始化 ──
 function init() {
   initPads();

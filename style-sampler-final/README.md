@@ -1,5 +1,18 @@
 # 多风格音频键盘映射播放器 - 项目说明
 
+## 重要提示
+
+⚠️ **构建前请先更新依赖：**
+```bash
+cd src-tauri
+cargo update
+```
+
+然后再构建：
+```bash
+cargo build --release
+```
+
 ## 项目结构
 ```
 style-sampler-final/
@@ -61,13 +74,18 @@ style-sampler-final/
 
 ## 快速开始
 
-### 1. 构建项目
+### 1. 更新依赖（重要！）
 ```bash
 cd src-tauri
+cargo update
+```
+
+### 2. 构建项目
+```bash
 cargo build --release
 ```
 
-### 2. 使用 Tauri 开发模式（推荐）
+### 3. 使用 Tauri 开发模式（推荐）
 ```bash
 # 在项目根目录
 npm init -y
@@ -75,7 +93,7 @@ npm install --save-dev @tauri-apps/cli
 npx tauri dev
 ```
 
-### 3. 构建安装包
+### 4. 构建安装包
 ```bash
 npx tauri build
 ```
@@ -125,16 +143,16 @@ npx tauri build
 - **前端**：HTML/CSS/JavaScript
 - **DSP 算法**：自定义音频处理
 
-## 开发
+## 常见问题
 
-### 项目依赖
-```toml
-tauri = "2.0"
-cpal = "0.15"
-symphonia = "0.5"
-hound = "3.5"
-rdev = "0.5"
-```
+### Q: 构建时出现配置错误？
+A: 请先运行 `cargo update` 更新依赖
+
+### Q: 如何查看日志？
+A: 程序运行时会在控制台输出日志信息
+
+### Q: 如何加载音频采样？
+A: 使用 `load_sample_directory` 命令加载整个目录
 
 ## License
 

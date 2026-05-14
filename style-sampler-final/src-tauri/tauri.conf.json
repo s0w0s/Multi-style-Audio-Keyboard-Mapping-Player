@@ -4,10 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.stylesampler.app",
   "build": {
-    "devtools": true,
     "frontendDist": ".",
-    "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "",
     "beforeBuildCommand": ""
   },
   "app": {

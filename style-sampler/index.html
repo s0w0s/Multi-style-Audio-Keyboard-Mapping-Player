@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Style Sampler — DJ台</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3a;
+  --text:#e0e0e8;--text-dim:#6a6a7a;--accent:#00ffaa;
+  --p01:#FFAA00;--p02:#FF4444;--p03:#00FFFF;--p04:#FFD700;
+  --p05:#AA00FF;--p06:#4444FF;--p07:#AAAAAA;--p08:#FF88AA;
+  --p09:#00FF88;--p10:#88FF00;--p11:#FFFFFF;
+}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);
+  display:flex;flex-direction:column;
+}
+/* ── 菜单栏 ── */
+.menubar{
+  height:32px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:20px;
+  font-size:12px;color:var(--text-dim);flex-shrink:0;
+}
+.menubar span{cursor:pointer;transition:color .2s}
+.menubar span:hover{color:var(--text)}
+.menubar .logo{color:var(--accent);font-weight:800;font-size:13px;letter-spacing:1px}
+
+/* ── 主内容 ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:12px;gap:10px}
+
+/* ── 中央混音台 ── */
+.mixer{
+  display:flex;align-items:stretch;gap:12px;flex-shrink:0;
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:16px 20px;
+}
+/* 音量推子 */
+.fader-col{display:flex;flex-direction:column;align-items:center;gap:6px;width:60px}
+.fader-track{
+  width:8px;height:140px;background:var(--surface2);border-radius:4px;
+  position:relative;cursor:pointer;
+}
+.fader-fill{
+  position:absolute;bottom:0;left:0;right:0;border-radius:4px;
+  background:linear-gradient(to top,var(--accent),#00cc88);transition:height .1s;
+}
+.fader-knob{
+  position:absolute;left:50%;transform:translate(-50%,50%);
+  width:28px;height:14px;background:#ddd;border-radius:3px;
+  box-shadow:0 2px 8px rgba(0,0,0,.5);cursor:grab;bottom:75%;
+  transition:bottom .1s;
+}
+.fader-label{font-size:10px;color:var(--text-dim);font-family:'JetBrains Mono',monospace}
+.fader-db{font-size:11px;color:var(--accent);font-family:'JetBrains Mono',monospace;font-weight:700}
+
+/* 波形区 */
+.waveform-section{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+.waveform-box{
+  flex:1;background:var(--surface2);border-radius:8px;overflow:hidden;
+  position:relative;min-height:100px;
+}
+.waveform-box canvas{width:100%;height:100%;display:block}
+.playhead{
+  position:absolute;top:0;bottom:0;width:2px;background:var(--accent);
+  box-shadow:0 0 8px var(--accent);transition:left .05s linear;left:0;
+  pointer-events:none;
+}
+.loop-marker{
+  position:absolute;top:0;bottom:0;width:2px;background:#ff6600;
+  box-shadow:0 0 6px #ff6600;left:0;pointer-events:none;
+}
+.loop-marker::after{
+  content:'LOOP';position:absolute;top:4px;left:6px;font-size:9px;
+  color:#ff6600;font-family:'JetBrains Mono',monospace;
+}
+.waveform-info{
+  display:flex;align-items:center;gap:12px;font-size:11px;
+  font-family:'JetBrains Mono',monospace;color:var(--text-dim);
+}
+.waveform-info .style-name{color:var(--accent);font-weight:700;font-size:13px}
+.waveform-info .time{color:var(--text)}
+
+/* BPM区 */
+.bpm-col{display:flex;flex-direction:column;align-items:center;gap:8px;width:120px}
+.bpm-display{
+  font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:700;
+  color:var(--accent);line-height:1;
+}
+.bpm-beat{
+  width:12px;height:12px;border-radius:50%;background:var(--surface2);
+  transition:background .05s,box-shadow .05s;
+}
+.bpm-beat.active{background:var(--accent);box-shadow:0 0 12px var(--accent)}
+.bpm-label{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+.bpm-btn{
+  padding:4px 12px;border:1px solid var(--border);border-radius:6px;
+  background:var(--surface2);color:var(--text-dim);font-size:10px;
+  cursor:pointer;font-family:'Outfit',sans-serif;transition:all .2s;
+}
+.bpm-btn:hover{border-color:var(--accent);color:var(--accent)}
+.bpm-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+
+/* ── 打击垫区域 ── */
+.pads-section{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:14px 20px;flex-shrink:0;
+}
+.pads-row{display:flex;gap:8px;justify-content:center}
+.pads-row.bottom{justify-content:center;margin-top:8px}
+.pad{
+  width:80px;height:72px;border-radius:10px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;transition:transform .08s,box-shadow .08s;
+  border:2px solid transparent;position:relative;overflow:hidden;
+  user-select:none;
+}
+.pad .pad-num{font-size:16px;font-weight:800;opacity:.9}
+.pad .pad-key{
+  font-size:10px;font-family:'JetBrains Mono',monospace;
+  opacity:.5;background:rgba(0,0,0,.3);padding:1px 6px;border-radius:3px;
+}
+.pad .pad-name{font-size:9px;opacity:.6;margin-top:1px}
+.pad::before{
+  content:'';position:absolute;inset:0;border-radius:8px;
+  opacity:0;transition:opacity .15s;
+}
+.pad:hover::before{opacity:.15}
+.pad:hover{transform:scale(1.04)}
+.pad.active{transform:scale(.95)}
+.pad.active::before{opacity:.3}
+.pad.active::after{
+  content:'';position:absolute;inset:-4px;border-radius:12px;
+  border:2px solid currentColor;opacity:.6;
+  animation:pad-pulse 1s ease-in-out infinite;
+}
+@keyframes pad-pulse{
+  0%,100%{opacity:.6;transform:scale(1)}
+  50%{opacity:.2;transform:scale(1.02)}
+}
+
+.pad[data-style="1"]{background:#2a1f00;color:var(--p01)}
+.pad[data-style="2"]{background:#2a0a0a;color:var(--p02)}
+.pad[data-style="3"]{background:#0a2a2a;color:var(--p03)}
+.pad[data-style="4"]{background:#2a2400;color:var(--p04)}
+.pad[data-style="5"]{background:#1f0a2a;color:var(--p05)}
+.pad[data-style="6"]{background:#0a0a2a;color:var(--p06)}
+.pad[data-style="7"]{background:#1a1a1a;color:var(--p07)}
+.pad[data-style="8"]{background:#2a0a1a;color:var(--p08)}
+.pad[data-style="9"]{background:#0a2a1a;color:var(--p09)}
+.pad[data-style="10"]{background:#1a2a0a;color:var(--p10)}
+.pad[data-style="11"]{background:#1a1a1a;color:var(--p11)}
+
+/* ── 下方面板 ── */
+.bottom-panels{display:flex;gap:10px;flex:1;min-height:0}
+
+/* 效果器面板 */
+.fx-panel{
+  flex:1;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:14px 18px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.fx-panel h3{
+  font-size:11px;color:var(--text-dim);text-transform:uppercase;
+  letter-spacing:2px;font-weight:400;
+}
+.fx-row{display:flex;gap:14px;flex-wrap:wrap}
+.fx-knob{
+  width:64px;display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.fx-knob .knob{
+  width:44px;height:44px;border-radius:50%;background:var(--surface2);
+  border:2px solid var(--border);position:relative;cursor:pointer;
+  transition:border-color .2s;
+}
+.fx-knob .knob::after{
+  content:'';position:absolute;top:4px;left:50%;transform:translateX(-50%);
+  width:3px;height:10px;background:var(--accent);border-radius:2px;
+}
+.fx-knob:hover .knob{border-color:var(--accent)}
+.fx-knob .knob-label{font-size:10px;font-weight:700;color:var(--text);letter-spacing:1px}
+.fx-knob .knob-value{font-size:9px;color:var(--text-dim);font-family:'JetBrains Mono',monospace}
+
+/* 设置面板 */
+.settings-panel{
+  flex:1;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:14px 18px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.settings-panel h3{
+  font-size:11px;color:var(--text-dim);text-transform:uppercase;
+  letter-spacing:2px;font-weight:400;
+}
+.setting-row{
+  display:flex;align-items:center;gap:8px;font-size:12px;
+}
+.setting-row label{color:var(--text-dim);min-width:70px;font-size:11px}
+.setting-row select,.setting-row input[type="number"]{
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);padding:4px 8px;font-size:11px;font-family:'Outfit',sans-serif;
+  outline:none;
+}
+.setting-row select:focus,.setting-row input:focus{border-color:var(--accent)}
+.setting-row input[type="number"]{width:60px}
+.setting-row input[type="range"]{
+  flex:1;accent-color:var(--accent);height:4px;
+}
+.action-btns{display:flex;gap:6px;margin-top:auto}
+.action-btns button{
+  flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface2);color:var(--text-dim);font-size:11px;
+  cursor:pointer;font-family:'Outfit',sans-serif;transition:all .2s;
+}
+.action-btns button:hover{border-color:var(--accent);color:var(--accent)}
+.action-btns button.danger:hover{border-color:#ff4444;color:#ff4444}
+.action-btns button.recording{background:#ff4444;color:#fff;border-color:#ff4444;animation:rec-blink 1s infinite}
+@keyframes rec-blink{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* ── 状态栏 ── */
+.statusbar{
+  height:28px;background:var(--surface);border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:24px;
+  font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-dim);
+  flex-shrink:0;
+}
+.statusbar .status-item{display:flex;align-items:center;gap:6px}
+.statusbar .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.meter{
+  display:flex;gap:2px;align-items:flex-end;height:14px;
+}
+.meter-bar{
+  width:4px;background:var(--accent);border-radius:1px;
+  transition:height .08s;
+}
+.meter-bar.peak{background:#ff4444}
+
+/* ── 动画 ── */
+@keyframes fade-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.mixer{animation:fade-in .4s ease}
+.pads-section{animation:fade-in .5s ease .1s both}
+.bottom-panels{animation:fade-in .6s ease .2s both}
+</style>
+</head>
+<body>
+
+<!-- 菜单栏 -->
+<div class="menubar">
+  <span class="logo">STYLE SAMPLER</span>
+  <span>文件</span><span>编辑</span><span>视图</span><span>工具</span><span>帮助</span>
+</div>
+
+<!-- 主内容 -->
+<div class="main">
+
+  <!-- 中央混音台 -->
+  <div class="mixer">
+    <!-- 音量推子 -->
+    <div class="fader-col">
+      <div class="fader-label">VOL</div>
+      <div class="fader-track" id="faderTrack">
+        <div class="fader-fill" id="faderFill" style="height:75%"></div>
+        <div class="fader-knob" id="faderKnob" style="bottom:75%"></div>
+      </div>
+      <div class="fader-db" id="faderDb">-6dB</div>
+    </div>
+
+    <!-- 波形区 -->
+    <div class="waveform-section">
+      <div class="waveform-box" id="waveformBox">
+        <canvas id="waveformCanvas"></canvas>
+        <div class="playhead" id="playhead"></div>
+        <div class="loop-marker" id="loopMarker" style="left:0"></div>
+      </div>
+      <div class="waveform-info">
+        <span class="style-name" id="currentStyle">风格01 · 爵士</span>
+        <span style="flex:1"></span>
+        <span class="time" id="timeDisplay">0:00.0 / 0:08.0</span>
+        <span>速度</span>
+        <span class="time">1.0x</span>
+      </div>
+    </div>
+
+    <!-- BPM区 -->
+    <div class="bpm-col">
+      <div class="bpm-label">BPM</div>
+      <div class="bpm-display" id="bpmDisplay">128</div>
+      <div class="bpm-beat" id="bpmBeat"></div>
+      <div class="bpm-btn" id="tapBtn">TAP</div>
+      <div class="bpm-btn" id="autoBtn">AUTO</div>
+      <div class="bpm-btn" id="recBtn">● REC</div>
+    </div>
+  </div>
+
+  <!-- 打击垫区域 -->
+  <div class="pads-section">
+    <div class="pads-row" id="padsRow"></div>
+    <div class="pads-row bottom" id="padsRowBottom"></div>
+  </div>
+
+  <!-- 下方面板 -->
+  <div class="bottom-panels">
+    <!-- 效果器面板 -->
+    <div class="fx-panel">
+      <h3>效果器</h3>
+      <div class="fx-row" id="fxRow"></div>
+    </div>
+    <!-- 设置面板 -->
+    <div class="settings-panel">
+      <h3>循环与设置</h3>
+      <div class="setting-row">
+        <label>循环起点</label>
+        <input type="range" id="loopStart" min="0" max="100" value="0" style="flex:1">
+        <span id="loopStartVal" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);min-width:40px">0.0s</span>
+      </div>
+      <div class="setting-row">
+        <label>循环模式</label>
+        <select id="loopMode">
+          <option value="off">关闭</option>
+          <option value="hold" selected>按键保持时循环</option>
+          <option value="always">始终循环</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <label>切换过渡</label>
+        <select id="transitionMode">
+          <option value="crossfade" selected>交叉淡化</option>
+          <option value="fade">淡入淡出</option>
+          <option value="hard">硬切</option>
+        </select>
+        <input type="number" value="50" min="0" max="500" id="transitionTime" style="width:50px">
+        <span style="font-size:10px;color:var(--text-dim)">ms</span>
+      </div>
+      <div class="setting-row">
+        <label>随机拍数</label>
+        <select id="randomBeats">
+          <option value="1-4" selected>1-4拍</option>
+          <option value="1-2">1-2拍</option>
+          <option value="1-8">1-8拍</option>
+          <option value="fixed">固定</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <label>触发模式</label>
+        <select id="triggerMode">
+          <option value="gate" selected>门控模式</option>
+          <option value="trigger">触发模式</option>
+          <option value="loop">循环模式</option>
+        </select>
+      </div>
+      <div class="action-btns">
+        <button class="danger" id="stopBtn">■ 停止</button>
+        <button id="resetBtn">↺ 重置</button>
+        <button id="exportBtn">↓ 导出</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 状态栏 -->
+<div class="statusbar">
+  <div class="status-item"><div class="dot"></div><span id="statusText">就绪</span></div>
+  <div class="status-item">风格: <span id="statusStyle">01</span></div>
+  <div class="status-item">L <span class="meter" id="meterL"></span></div>
+  <div class="status-item">R <span class="meter" id="meterR"></span></div>
+  <div class="status-item" style="margin-left:auto">CPU: <span id="cpuUsage">8</span>%</div>
+</div>
+
+<script>
+// ── 数据 ──
+const STYLES = [
+  { id:1,  key:'A', name:'爵士',  color:'#FFAA00' },
+  { id:2,  key:'S', name:'摇滚',  color:'#FF4444' },
+  { id:3,  key:'D', name:'电子',  color:'#00FFFF' },
+  { id:4,  key:'F', name:'古典',  color:'#FFD700' },
+  { id:5,  key:'G', name:'放克',  color:'#AA00FF' },
+  { id:6,  key:'H', name:'蓝调',  color:'#4444FF' },
+  { id:7,  key:'J', name:'金属',  color:'#AAAAAA' },
+  { id:8,  key:'K', name:'LoFi',  color:'#FF88AA' },
+  { id:9,  key:'L', name:'管弦',  color:'#00FF88' },
+  { id:10, key:';', name:'芯片',  color:'#88FF00' },
+  { id:11, key:"'", name:'原曲',  color:'#FFFFFF' },
+];
+
+const FX_LIST = [
+  { label:'LOW',  name:'低通滤波', value:72 },
+  { label:'HIGH', name:'高通滤波', value:0 },
+  { label:'REV',  name:'混响',     value:30 },
+  { label:'DLY',  name:'延迟',     value:20 },
+  { label:'DIST', name:'失真',     value:0 },
+  { label:'PAN',  name:'声像',     value:50 },
+];
+
+// ── 状态 ──
+let activeStyle = null;
+let isPlaying = false;
+let playheadPos = 0;
+const DURATION = 8; // 秒
+let bpm = 128;
+let lastBeatTime = 0;
+let autoMode = false;
+let isRecording = false;
+let autoTimer = null;
+let animFrame = null;
+let faderValue = 75;
+
+// ── 初始化打击垫 ──
+function initPads() {
+  const row = document.getElementById('padsRow');
+  const rowB = document.getElementById('padsRowBottom');
+  STYLES.forEach((s, i) => {
+    const pad = document.createElement('div');
+    pad.className = 'pad';
+    pad.dataset.style = s.id;
+    pad.dataset.key = s.key;
+    pad.innerHTML = `<span class="pad-num">${String(s.id).padStart(2,'0')}</span><span class="pad-key">${s.key}</span><span class="pad-name">${s.name}</span>`;
+    pad.style.setProperty('--pad-color', s.color);
+    pad.addEventListener('mousedown', (e) => { e.preventDefault(); activatePad(s.id); });
+    pad.addEventListener('mouseup', () => deactivatePad());
+    pad.addEventListener('mouseleave', () => deactivatePad());
+    pad.addEventListener('touchstart', (e) => { e.preventDefault(); activatePad(s.id); });
+    pad.addEventListener('touchend', () => deactivatePad());
+    if (i < 10) row.appendChild(pad);
+    else rowB.appendChild(pad);
+  });
+}
+
+function activatePad(id) {
+  const style = STYLES.find(s => s.id === id);
+  if (!style) return;
+  activeStyle = id;
+  isPlaying = true;
+  // 更新UI
+  document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.pad[data-style="${id}"]`)?.classList.add('active');
+  document.getElementById('currentStyle').textContent = `风格${String(id).padStart(2,'0')} · ${style.name}`;
+  document.getElementById('currentStyle').style.color = style.color;
+  document.getElementById('statusStyle').textContent = String(id).padStart(2,'0');
+  document.getElementById('statusText').textContent = '播放中';
+  // 如果播放头在末尾，回到循环起点
+  const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
+  if (playheadPos >= DURATION - 0.05) playheadPos = loopStart;
+}
+
+function deactivatePad() {
+  if (document.getElementById('triggerMode').value === 'gate') {
+    isPlaying = false;
+    document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
+    document.getElementById('statusText').textContent = '暂停';
+  }
+}
+
+// ── 键盘映射 ──
+const keyMap = { a:1, s:2, d:3, f:4, g:5, h:6, j:7, k:8, l:9, ';':10, "'":11 };
+const pressedKeys = new Set();
+document.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  const k = e.key.toLowerCase();
+  if (keyMap[k] && !pressedKeys.has(k)) {
+    pressedKeys.add(k);
+    activatePad(keyMap[k]);
+  }
+  if (k === ' ') { e.preventDefault(); stopAll(); }
+  if (k === 'tab') { e.preventDefault(); toggleAuto(); }
+});
+document.addEventListener('keyup', (e) => {
+  const k = e.key.toLowerCase();
+  pressedKeys.delete(k);
+  if (keyMap[k] && pressedKeys.size === 0) deactivatePad();
+});
+
+// ── 波形绘制 ──
+function drawWaveform() {
+  const canvas = document.getElementById('waveformCanvas');
+  const box = document.getElementById('waveformBox');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = box.clientWidth * dpr;
+  canvas.height = box.clientHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const w = box.clientWidth, h = box.clientHeight;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // 生成模拟波形
+  const color = activeStyle ? STYLES.find(s => s.id === activeStyle)?.color || '#00ffaa' : '#00ffaa';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.7;
+  ctx.beginPath();
+  for (let x = 0; x < w; x++) {
+    const t = x / w;
+    const envelope = Math.sin(t * Math.PI) * 0.8 + 0.2;
+    const wave = Math.sin(t * 60) * 0.3 + Math.sin(t * 120) * 0.15 + Math.sin(t * 240) * 0.08;
+    const noise = (Math.random() - 0.5) * 0.1;
+    const y = h / 2 + (wave + noise) * envelope * h * 0.35;
+    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // 已播放区域高亮
+  if (playheadPos > 0) {
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, (playheadPos / DURATION) * w, h);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ── 动画循环 ──
+let lastTime = 0;
+function animate(time) {
+  const dt = (time - lastTime) / 1000;
+  lastTime = time;
+
+  if (isPlaying) {
+    playheadPos += dt;
+    // 循环回跳
+    if (playheadPos >= DURATION) {
+      const loopMode = document.getElementById('loopMode').value;
+      const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
+      if (loopMode === 'always' || (loopMode === 'hold' && pressedKeys.size > 0)) {
+        playheadPos = loopStart;
+      } else {
+        playheadPos = DURATION;
+        isPlaying = false;
+        document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
+        document.getElementById('statusText').textContent = '就绪';
+      }
+    }
+  }
+
+  // 更新播放头
+  const ph = document.getElementById('playhead');
+  ph.style.left = `${(playheadPos / DURATION) * 100}%`;
+
+  // 更新时间显示
+  const cur = playheadPos;
+  const cm = Math.floor(cur / 60);
+  const cs = (cur % 60).toFixed(1);
+  document.getElementById('timeDisplay').textContent = `${cm}:${cs.padStart(4,'0')} / 0:08.0`;
+
+  // BPM节拍灯
+  const beatInterval = 60 / bpm;
+  if (time - lastBeatTime > beatInterval * 1000) {
+    lastBeatTime = time;
+    const beat = document.getElementById('bpmBeat');
+    beat.classList.add('active');
+    setTimeout(() => beat.classList.remove('active'), 100);
+  }
+
+  // 电平表
+  updateMeters();
+
+  // 波形（每4帧刷新一次减少开销）
+  if (Math.floor(time / 66) !== Math.floor((time - 16) / 66)) drawWaveform();
+
+  animFrame = requestAnimationFrame(animate);
+}
+
+// ── 电平表 ──
+function updateMeters() {
+  const makeBars = (active) => {
+    const count = 8;
+    let html = '';
+    for (let i = 0; i < count; i++) {
+      const h = active ? (Math.random() * 10 + 4) : 2;
+      const peak = active && i >= 6;
+      html += `<div class="meter-bar${peak ? ' peak' : ''}" style="height:${h}px"></div>`;
+    }
+    return html;
+  };
+  document.getElementById('meterL').innerHTML = makeBars(isPlaying);
+  document.getElementById('meterR').innerHTML = makeBars(isPlaying);
+}
+
+// ── BPM TAP ──
+const tapTimes = [];
+document.getElementById('tapBtn').addEventListener('click', () => {
+  const now = performance.now();
+  tapTimes.push(now);
+  if (tapTimes.length > 8) tapTimes.shift();
+  if (tapTimes.length >= 2) {
+    let sum = 0;
+    for (let i = 1; i < tapTimes.length; i++) sum += tapTimes[i] - tapTimes[i - 1];
+    bpm = Math.round(60000 / (sum / (tapTimes.length - 1)));
+    bpm = Math.max(60, Math.min(200, bpm));
+    document.getElementById('bpmDisplay').textContent = bpm;
+  }
+});
+
+// ── 自动切换 ──
+function toggleAuto() {
+  autoMode = !autoMode;
+  const btn = document.getElementById('autoBtn');
+  btn.classList.toggle('active', autoMode);
+  if (autoMode) startAutoSwitch();
+  else clearInterval(autoTimer);
+}
+
+function startAutoSwitch() {
+  clearInterval(autoTimer);
+  const doSwitch = () => {
+    if (!autoMode) return;
+    const beats = [1, 2, 3, 4];
+    const beatCount = beats[Math.floor(Math.random() * beats.length)];
+    const interval = (60 / bpm) * beatCount * 1000;
+    let nextId;
+    do { nextId = Math.floor(Math.random() * 11) + 1; } while (nextId === activeStyle);
+    activatePad(nextId);
+    autoTimer = setTimeout(doSwitch, interval);
+  };
+  doSwitch();
+}
+
+document.getElementById('autoBtn').addEventListener('click', toggleAuto);
+
+// ── 录制按钮 ──
+document.getElementById('recBtn').addEventListener('click', () => {
+  isRecording = !isRecording;
+  const btn = document.getElementById('recBtn');
+  btn.classList.toggle('recording', isRecording);
+  document.getElementById('statusText').textContent = isRecording ? '录制中' : '就绪';
+});
+
+// ── 停止/重置 ──
+function stopAll() {
+  isPlaying = false;
+  activeStyle = null;
+  playheadPos = 0;
+  document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
+  document.getElementById('statusText').textContent = '就绪';
+  document.getElementById('currentStyle').textContent = '未选择风格';
+  document.getElementById('currentStyle').style.color = 'var(--text-dim)';
+}
+document.getElementById('stopBtn').addEventListener('click', stopAll);
+document.getElementById('resetBtn').addEventListener('click', () => { playheadPos = 0; });
+
+// ── 音量推子 ──
+const faderTrack = document.getElementById('faderTrack');
+let faderDragging = false;
+function updateFader(e) {
+  const rect = faderTrack.getBoundingClientRect();
+  const y = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
+  faderValue = y * 100;
+  document.getElementById('faderFill').style.height = `${faderValue}%`;
+  document.getElementById('faderKnob').style.bottom = `${faderValue}%`;
+  const db = faderValue > 0 ? Math.round(20 * Math.log10(faderValue / 100)) : -Infinity;
+  document.getElementById('faderDb').textContent = db > -60 ? `${db}dB` : '-∞';
+}
+faderTrack.addEventListener('mousedown', (e) => { faderDragging = true; updateFader(e); });
+document.addEventListener('mousemove', (e) => { if (faderDragging) updateFader(e); });
+document.addEventListener('mouseup', () => { faderDragging = false; });
+
+// ── 循环起点 ──
+document.getElementById('loopStart').addEventListener('input', (e) => {
+  const v = parseFloat(e.target.value);
+  const t = (v / 100 * DURATION).toFixed(1);
+  document.getElementById('loopStartVal').textContent = `${t}s`;
+  document.getElementById('loopMarker').style.left = `${v}%`;
+});
+
+// ── 效果器旋钮 ──
+function initFX() {
+  const row = document.getElementById('fxRow');
+  FX_LIST.forEach((fx, i) => {
+    const knob = document.createElement('div');
+    knob.className = 'fx-knob';
+    knob.innerHTML = `
+      <div class="knob" data-fx="${i}" style="transform:rotate(${fx.value * 2.7 - 135}deg)"></div>
+      <span class="knob-label">${fx.label}</span>
+      <span class="knob-value" id="fxVal${i}">${fx.value}%</span>
+    `;
+    // 旋钮交互
+    let dragging = false, startY, startVal;
+    const kEl = knob.querySelector('.knob');
+    kEl.addEventListener('mousedown', (e) => {
+      dragging = true; startY = e.clientY; startVal = fx.value;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const delta = (startY - e.clientY) * 0.5;
+      fx.value = Math.max(0, Math.min(100, startVal + delta));
+      kEl.style.transform = `rotate(${fx.value * 2.7 - 135}deg)`;
+      document.getElementById(`fxVal${i}`).textContent = `${Math.round(fx.value)}%`;
+    });
+    document.addEventListener('mouseup', () => { dragging = false; });
+    row.appendChild(knob);
+  });
+}
+
+// ── 初始化 ──
+function init() {
+  initPads();
+  initFX();
+  drawWaveform();
+  lastTime = performance.now();
+  animFrame = requestAnimationFrame(animate);
+  window.addEventListener('resize', drawWaveform);
+}
+init();
+</script>
+</body>
+</html>

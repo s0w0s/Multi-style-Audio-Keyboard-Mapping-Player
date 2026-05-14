@@ -55,7 +55,7 @@ impl SampleManager {
             .make(&track.codec_params, &decoder_opts)?;
 
         let mut all_samples: Vec<f32> = Vec::new();
-        let mut sample_rate = sample_rate_val;
+        let sample_rate = sample_rate_val;
         let mut channels = 2u16;
         
         loop {

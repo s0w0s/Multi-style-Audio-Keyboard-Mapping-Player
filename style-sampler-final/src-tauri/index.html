@@ -261,6 +261,39 @@ body{
 .mixer{animation:fade-in .4s ease}
 .pads-section{animation:fade-in .5s ease .1s both}
 .bottom-panels{animation:fade-in .6s ease .2s both}
+
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  animation:modal-fade-in .15s ease;
+}
+@keyframes modal-fade-in{from{opacity:0}to{opacity:1}}
+.modal-box{
+  background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+  min-width:320px;max-width:480px;padding:24px;
+  box-shadow:0 16px 48px rgba(0,0,0,.5);animation:modal-scale-in .2s ease;
+}
+@keyframes modal-scale-in{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-box .modal-title{
+  font-size:14px;font-weight:700;color:var(--accent);margin-bottom:12px;
+}
+.modal-box .modal-body{
+  font-size:12px;color:var(--text);line-height:1.7;white-space:pre-line;
+  max-height:300px;overflow-y:auto;
+}
+.modal-box .modal-btns{
+  display:flex;gap:8px;justify-content:flex-end;margin-top:18px;
+}
+.modal-box .modal-btns button{
+  padding:6px 20px;border:1px solid var(--border);border-radius:6px;
+  background:var(--surface);color:var(--text-dim);font-size:12px;
+  cursor:pointer;font-family:'Outfit',sans-serif;transition:all .2s;
+}
+.modal-box .modal-btns button:hover{border-color:var(--accent);color:var(--accent)}
+.modal-box .modal-btns button.primary{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.modal-box .modal-btns button.primary:hover{opacity:.85}
+.modal-box .modal-btns button.danger{border-color:#ff4444;color:#ff4444}
+.modal-box .modal-btns button.danger:hover{background:#ff4444;color:#fff}
 </style>
 </head>
 <body>
@@ -427,6 +460,26 @@ body{
 </div>
 
 <script>
+// ── 自定义模态框（替代 alert/confirm） ──
+function showModal(title, body) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-box"><div class="modal-title">${title}</div><div class="modal-body">${body}</div><div class="modal-btns"><button class="primary" id="modalOk">确定</button></div></div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#modalOk').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+}
+
+function showConfirm(title, body, onYes) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-box"><div class="modal-title">${title}</div><div class="modal-body">${body}</div><div class="modal-btns"><button id="modalNo">取消</button><button class="danger" id="modalYes">确定</button></div></div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#modalYes').addEventListener('click', () => { overlay.remove(); onYes(); });
+  overlay.querySelector('#modalNo').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+}
+
 // ── 数据 ──
 const STYLES = [
   { id:1,  key:'A', name:'爵士',  color:'#FFAA00' },
@@ -817,9 +870,9 @@ function executeMenuAction(action) {
       exportWav();
     },
     'quit': () => {
-      if (confirm('确定要退出 Style Sampler 吗？')) {
+      showConfirm('退出', '确定要退出 Style Sampler 吗？', () => {
         try { window.close(); } catch(e) {}
-      }
+      });
     },
     'undo': () => {
       document.getElementById('statusText').textContent = '撤销（暂未实现）';
@@ -828,7 +881,7 @@ function executeMenuAction(action) {
       document.getElementById('statusText').textContent = '重做（暂未实现）';
     },
     'prefs': () => {
-      alert('首选项设置\n\n• 音频输出设备\n• 采样率: 44100Hz\n• 缓冲区大小: 512\n• MIDI 输入设备');
+      showModal('首选项设置', '• 音频输出设备\n• 采样率: 44100Hz\n• 缓冲区大小: 512\n• MIDI 输入设备');
     },
     'fullscreen': () => {
       try {
@@ -883,16 +936,16 @@ function executeMenuAction(action) {
       }, 800);
     },
     'midi': () => {
-      alert('MIDI 设置\n\n当前状态: 未连接\n\n支持的设备:\n• 任何兼容 MIDI 控制器\n• 通过 USB 或蓝牙连接\n\n请在系统设置中配置 MIDI 设备后重启应用');
+      showModal('MIDI 设置', '当前状态: 未连接\n\n支持的设备:\n• 任何兼容 MIDI 控制器\n• 通过 USB 或蓝牙连接\n\n请在系统设置中配置 MIDI 设备后重启应用');
     },
     'audiodev': () => {
-      alert('音频设备\n\n当前输出: 默认音频设备\n采样率: 44100 Hz\n缓冲区: 512 samples\n延迟: ~11.6 ms\n\n如需更改设备，请在首选项中设置');
+      showModal('音频设备', '当前输出: 默认音频设备\n采样率: 44100 Hz\n缓冲区: 512 samples\n延迟: ~11.6 ms\n\n如需更改设备，请在首选项中设置');
     },
     'shortcuts': () => {
-      alert('快捷键说明\n\nA S D F G H J K L ; \'  →  触发风格 1-11\n空格  →  停止播放\nTab  →  自动切换风格\nEsc  →  紧急静音\nF1  →  帮助\nF11  →  全屏\nCtrl+O  →  打开采样文件夹\nCtrl+E  →  导出录音');
+      showModal('快捷键说明', 'A S D F G H J K L ; \'  →  触发风格 1-11\n空格  →  停止播放\nTab  →  自动切换风格\nEsc  →  紧急静音\nF1  →  帮助\nF11  →  全屏\nCtrl+O  →  打开采样文件夹\nCtrl+E  →  导出录音');
     },
     'about': () => {
-      alert('Style Sampler v0.1.0\n\n多风格音频键盘映射播放器\n\n11 种风格共享同一时间线，\n通过键盘即时切换，无缝过渡。\n\n基于 Tauri + Rust 构建');
+      showModal('关于 Style Sampler', 'Style Sampler v0.1.0\n\n多风格音频键盘映射播放器\n\n11 种风格共享同一时间线，\n通过键盘即时切换，无缝过渡。\n\n基于 Tauri + Rust 构建');
     }
   };
   if (actions[action]) actions[action]();
@@ -920,14 +973,14 @@ async function triggerImport() {
       await tauri.core.invoke('load_sample_directory', { dirPath: dirPath });
       audioLoaded = true;
       document.getElementById('statusText').textContent = '音频已加载';
-      alert('✓ 音频采样加载成功！\n\n请将音频文件放入文件夹并按以下顺序命名：\n01.mp3/wav, 02.mp3/wav, ... 11.mp3/wav');
+      showModal('加载成功', '✓ 音频采样加载成功！\n\n请将音频文件放入文件夹并按以下顺序命名：\n01.mp3/wav, 02.mp3/wav, ... 11.mp3/wav');
     } else {
       document.getElementById('statusText').textContent = '就绪';
     }
   } catch (e) {
     console.warn('导入失败:', e);
     document.getElementById('statusText').textContent = '导入失败: ' + (e.message || e);
-    alert('导入失败\n\n错误信息: ' + (e.message || e) + '\n\n请确保：\n1. 应用以 Tauri 模式运行\n2. 已安装 dialog 插件\n3. capabilities 中已声明 dialog 权限');
+    showModal('导入失败', '错误信息: ' + (e.message || e) + '\n\n请确保：\n1. 应用以 Tauri 模式运行\n2. 已安装 dialog 插件\n3. capabilities 中已声明 dialog 权限');
   }
 }
 
@@ -941,7 +994,7 @@ async function exportWav() {
     await tauri.core.invoke('stop_recording');
     await tauri.core.invoke('export_recording', { path });
     document.getElementById('statusText').textContent = '已导出';
-    alert(`录音已导出: ${path}`);
+    showModal('导出完成', '录音已导出: ' + path);
   } catch (e) {
     console.warn('导出功能需要 Tauri 环境:', e);
     document.getElementById('statusText').textContent = '导出完成（模拟）';

@@ -5,10 +5,10 @@
   "identifier": "com.stylesampler.app",
   "build": {
     "frontendDist": ".",
-    "beforeBuildCommand": "",
-    "withGlobalTauri": true
+    "beforeBuildCommand": ""
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "多风格音频键盘映射播放器",

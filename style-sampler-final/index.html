@@ -22,18 +22,21 @@ body{
 /* ── 菜单栏 ── */
 .menubar{
   height:32px;background:var(--surface);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;padding:0 16px;gap:20px;
+  display:flex;align-items:center;padding:0 16px;gap:4px;
   font-size:12px;color:var(--text-dim);flex-shrink:0;
+  position:relative;z-index:1000;
 }
-.menubar span{cursor:pointer;transition:color .2s,background .2s;padding:4px 10px;border-radius:4px;position:relative}
-.menubar span:hover{color:var(--text);background:var(--surface2)}
-.menubar span.active{color:var(--accent);background:var(--surface2)}
-.menubar .logo{color:var(--accent);font-weight:800;font-size:13px;letter-spacing:1px;cursor:default;background:none!important}
-.menubar .logo:hover{background:none!important}
+.menubar .menu-trigger{
+  cursor:pointer;transition:color .2s,background .2s;padding:4px 10px;border-radius:4px;position:relative;
+  white-space:nowrap;
+}
+.menubar .menu-trigger:hover{color:var(--text);background:var(--surface2)}
+.menubar .menu-trigger.active{color:var(--accent);background:var(--surface2)}
+.menubar .logo{color:var(--accent);font-weight:800;font-size:13px;letter-spacing:1px;cursor:default;padding:4px 10px}
 .menu-dropdown{
-  display:none;position:absolute;top:100%;left:0;margin-top:4px;
+  display:none;position:absolute;top:100%;left:0;margin-top:2px;
   background:var(--surface2);border:1px solid var(--border);border-radius:8px;
-  min-width:180px;padding:6px 0;z-index:9999;
+  min-width:200px;padding:6px 0;z-index:1001;
   box-shadow:0 8px 32px rgba(0,0,0,.6);
 }
 .menu-dropdown.show{display:block}
@@ -264,8 +267,8 @@ body{
 
 <!-- 菜单栏 -->
 <div class="menubar">
-  <span class="logo">STYLE SAMPLER</span>
-  <span data-menu="file">文件
+  <div class="logo">STYLE SAMPLER</div>
+  <div class="menu-trigger" data-menu="file">文件
     <div class="menu-dropdown" id="menuFile">
       <div class="menu-item" data-action="import">打开采样文件夹 <span class="shortcut">Ctrl+O</span></div>
       <div class="menu-sep"></div>
@@ -273,37 +276,37 @@ body{
       <div class="menu-sep"></div>
       <div class="menu-item" data-action="quit">退出 <span class="shortcut">Alt+F4</span></div>
     </div>
-  </span>
-  <span data-menu="edit">编辑
+  </div>
+  <div class="menu-trigger" data-menu="edit">编辑
     <div class="menu-dropdown" id="menuEdit">
       <div class="menu-item" data-action="undo">撤销 <span class="shortcut">Ctrl+Z</span></div>
       <div class="menu-item" data-action="redo">重做 <span class="shortcut">Ctrl+Y</span></div>
       <div class="menu-sep"></div>
       <div class="menu-item" data-action="prefs">首选项</div>
     </div>
-  </span>
-  <span data-menu="view">视图
+  </div>
+  <div class="menu-trigger" data-menu="view">视图
     <div class="menu-dropdown" id="menuView">
       <div class="menu-item" data-action="fullscreen">全屏 <span class="shortcut">F11</span></div>
       <div class="menu-item" data-action="theme">切换主题</div>
       <div class="menu-sep"></div>
       <div class="menu-item" data-action="resetlayout">重置布局</div>
     </div>
-  </span>
-  <span data-menu="tools">工具
+  </div>
+  <div class="menu-trigger" data-menu="tools">工具
     <div class="menu-dropdown" id="menuTools">
       <div class="menu-item" data-action="bpmdetect">BPM 检测</div>
       <div class="menu-item" data-action="midi">MIDI 设置</div>
       <div class="menu-item" data-action="audiodev">音频设备</div>
     </div>
-  </span>
-  <span data-menu="help">帮助
+  </div>
+  <div class="menu-trigger" data-menu="help">帮助
     <div class="menu-dropdown" id="menuHelp">
       <div class="menu-item" data-action="shortcuts">快捷键说明 <span class="shortcut">F1</span></div>
       <div class="menu-sep"></div>
       <div class="menu-item" data-action="about">关于 Style Sampler</div>
     </div>
-  </span>
+  </div>
 </div>
 
 <!-- 主内容 -->
@@ -751,45 +754,50 @@ function initFX() {
 let menuOpen = null;
 
 function closeAllMenus() {
-  document.querySelectorAll('.menubar > span:not(.logo)').forEach(s => {
-    s.classList.remove('active');
-    const dd = s.querySelector('.menu-dropdown');
+  document.querySelectorAll('.menu-trigger').forEach(t => {
+    t.classList.remove('active');
+    const dd = t.querySelector('.menu-dropdown');
     if (dd) dd.classList.remove('show');
   });
   menuOpen = null;
 }
 
-document.querySelectorAll('.menubar > span:not(.logo)').forEach(item => {
-  item.addEventListener('click', (e) => {
+document.querySelector('.menubar').addEventListener('click', (e) => {
+  const menuItem = e.target.closest('.menu-item');
+  if (menuItem) {
     e.stopPropagation();
-    const menuKey = item.dataset.menu;
+    const action = menuItem.dataset.action;
+    closeAllMenus();
+    executeMenuAction(action);
+    return;
+  }
+
+  const trigger = e.target.closest('.menu-trigger');
+  if (trigger) {
+    e.stopPropagation();
+    const menuKey = trigger.dataset.menu;
     if (menuOpen === menuKey) {
       closeAllMenus();
     } else {
       closeAllMenus();
-      item.classList.add('active');
-      const dd = item.querySelector('.menu-dropdown');
+      trigger.classList.add('active');
+      const dd = trigger.querySelector('.menu-dropdown');
       if (dd) dd.classList.add('show');
       menuOpen = menuKey;
     }
-  });
-  item.addEventListener('mouseenter', () => {
-    if (menuOpen && item.dataset.menu !== menuOpen) {
-      closeAllMenus();
-      item.classList.add('active');
-      const dd = item.querySelector('.menu-dropdown');
-      if (dd) dd.classList.add('show');
-      menuOpen = item.dataset.menu;
-    }
-  });
+    return;
+  }
 });
 
-document.querySelectorAll('.menu-item').forEach(mi => {
-  mi.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const action = mi.dataset.action;
-    closeAllMenus();
-    executeMenuAction(action);
+document.querySelectorAll('.menu-trigger').forEach(trigger => {
+  trigger.addEventListener('mouseenter', () => {
+    if (menuOpen && trigger.dataset.menu !== menuOpen) {
+      closeAllMenus();
+      trigger.classList.add('active');
+      const dd = trigger.querySelector('.menu-dropdown');
+      if (dd) dd.classList.add('show');
+      menuOpen = trigger.dataset.menu;
+    }
   });
 });
 

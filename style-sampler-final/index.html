@@ -904,17 +904,20 @@ let audioLoaded = false;
 async function triggerImport() {
   try {
     const tauri = window.__TAURI__;
-    if (!tauri) throw new Error('Tauri API not available');
+    if (!tauri || !tauri.core) throw new Error('Tauri API not available');
 
-    const selected = await tauri.dialog.open({
-      directory: true,
-      multiple: false,
-      title: '选择音频采样文件夹'
+    const selected = await tauri.core.invoke('plugin:dialog|open', {
+      options: {
+        directory: true,
+        multiple: false,
+        title: '选择音频采样文件夹'
+      }
     });
 
     if (selected) {
       document.getElementById('statusText').textContent = '加载中...';
-      await tauri.core.invoke('load_sample_directory', { dirPath: selected });
+      const dirPath = typeof selected === 'string' ? selected : (selected.path || selected);
+      await tauri.core.invoke('load_sample_directory', { dirPath: dirPath });
       audioLoaded = true;
       document.getElementById('statusText').textContent = '音频已加载';
       alert('✓ 音频采样加载成功！\n\n请将音频文件放入文件夹并按以下顺序命名：\n01.mp3/wav, 02.mp3/wav, ... 11.mp3/wav');
@@ -922,9 +925,9 @@ async function triggerImport() {
       document.getElementById('statusText').textContent = '就绪';
     }
   } catch (e) {
-    console.warn('导入功能需要 Tauri 环境:', e);
-    document.getElementById('statusText').textContent = '就绪（演示模式）';
-    alert('演示模式提示：\n\n在 Tauri 应用中：\n1. 点击"文件"菜单选择采样文件夹\n2. 或点击设置面板中的"加载采样"按钮\n\n采样要求：\n• 11 个等长音频文件\n• 支持格式: MP3, WAV, FLAC\n• 命名: 01, 02, 03 ... 11\n• 推荐时长: 2-8 秒');
+    console.warn('导入失败:', e);
+    document.getElementById('statusText').textContent = '导入失败: ' + (e.message || e);
+    alert('导入失败\n\n错误信息: ' + (e.message || e) + '\n\n请确保：\n1. 应用以 Tauri 模式运行\n2. 已安装 dialog 插件\n3. capabilities 中已声明 dialog 权限');
   }
 }
 

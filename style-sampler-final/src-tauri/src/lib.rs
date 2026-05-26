@@ -22,7 +22,6 @@ pub fn run() {
     
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             engine: Mutex::new(engine),
             recorder: Mutex::new(None),
@@ -30,6 +29,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             ipc::commands::load_samples,
             ipc::commands::load_sample_directory,
+            ipc::commands::pick_folder,
             ipc::commands::play_style,
             ipc::commands::stop_all,
             ipc::commands::set_volume,

@@ -9,6 +9,18 @@ pub struct AppState {
 }
 
 #[tauri::command]
+pub async fn pick_folder() -> Result<Option<String>, String> {
+    let folder = rfd::AsyncFileDialog::new()
+        .set_title("选择音频采样文件夹")
+        .pick_folder()
+        .await;
+    match folder {
+        Some(f) => Ok(Some(f.path().to_string_lossy().to_string())),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
 pub async fn load_samples(
     paths: Vec<String>,
     state: State<'_, AppState>,

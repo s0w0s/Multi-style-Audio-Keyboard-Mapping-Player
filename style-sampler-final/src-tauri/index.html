@@ -959,18 +959,11 @@ async function triggerImport() {
     const tauri = window.__TAURI__;
     if (!tauri || !tauri.core) throw new Error('Tauri API not available');
 
-    const selected = await tauri.core.invoke('plugin:dialog|open', {
-      options: {
-        directory: true,
-        multiple: false,
-        title: '选择音频采样文件夹'
-      }
-    });
+    const selected = await tauri.core.invoke('pick_folder');
 
     if (selected) {
       document.getElementById('statusText').textContent = '加载中...';
-      const dirPath = typeof selected === 'string' ? selected : (selected.path || selected);
-      await tauri.core.invoke('load_sample_directory', { dirPath: dirPath });
+      await tauri.core.invoke('load_sample_directory', { dirPath: selected });
       audioLoaded = true;
       document.getElementById('statusText').textContent = '音频已加载';
       showModal('加载成功', '✓ 音频采样加载成功！\n\n请将音频文件放入文件夹并按以下顺序命名：\n01.mp3/wav, 02.mp3/wav, ... 11.mp3/wav');
@@ -980,7 +973,7 @@ async function triggerImport() {
   } catch (e) {
     console.warn('导入失败:', e);
     document.getElementById('statusText').textContent = '导入失败: ' + (e.message || e);
-    showModal('导入失败', '错误信息: ' + (e.message || e) + '\n\n请确保：\n1. 应用以 Tauri 模式运行\n2. 已安装 dialog 插件\n3. capabilities 中已声明 dialog 权限');
+    showModal('导入失败', '错误信息: ' + (e.message || e));
   }
 }
 

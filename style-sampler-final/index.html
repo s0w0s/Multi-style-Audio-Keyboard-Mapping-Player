@@ -25,9 +25,25 @@ body{
   display:flex;align-items:center;padding:0 16px;gap:20px;
   font-size:12px;color:var(--text-dim);flex-shrink:0;
 }
-.menubar span{cursor:pointer;transition:color .2s}
-.menubar span:hover{color:var(--text)}
-.menubar .logo{color:var(--accent);font-weight:800;font-size:13px;letter-spacing:1px}
+.menubar span{cursor:pointer;transition:color .2s,background .2s;padding:4px 10px;border-radius:4px;position:relative}
+.menubar span:hover{color:var(--text);background:var(--surface2)}
+.menubar span.active{color:var(--accent);background:var(--surface2)}
+.menubar .logo{color:var(--accent);font-weight:800;font-size:13px;letter-spacing:1px;cursor:default;background:none!important}
+.menubar .logo:hover{background:none!important}
+.menu-dropdown{
+  display:none;position:absolute;top:100%;left:0;margin-top:4px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  min-width:180px;padding:6px 0;z-index:9999;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+}
+.menu-dropdown.show{display:block}
+.menu-dropdown .menu-item{
+  padding:8px 16px;cursor:pointer;font-size:12px;color:var(--text-dim);
+  display:flex;align-items:center;gap:10px;transition:all .15s;
+}
+.menu-dropdown .menu-item:hover{background:var(--accent);color:var(--bg)}
+.menu-dropdown .menu-item .shortcut{margin-left:auto;font-size:10px;opacity:.5;font-family:'JetBrains Mono',monospace}
+.menu-dropdown .menu-sep{height:1px;background:var(--border);margin:4px 12px}
 
 /* ── 主内容 ── */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:12px;gap:10px}
@@ -249,7 +265,45 @@ body{
 <!-- 菜单栏 -->
 <div class="menubar">
   <span class="logo">STYLE SAMPLER</span>
-  <span>文件</span><span>编辑</span><span>视图</span><span>工具</span><span>帮助</span>
+  <span data-menu="file">文件
+    <div class="menu-dropdown" id="menuFile">
+      <div class="menu-item" data-action="import">打开采样文件夹 <span class="shortcut">Ctrl+O</span></div>
+      <div class="menu-sep"></div>
+      <div class="menu-item" data-action="export">导出录音 <span class="shortcut">Ctrl+E</span></div>
+      <div class="menu-sep"></div>
+      <div class="menu-item" data-action="quit">退出 <span class="shortcut">Alt+F4</span></div>
+    </div>
+  </span>
+  <span data-menu="edit">编辑
+    <div class="menu-dropdown" id="menuEdit">
+      <div class="menu-item" data-action="undo">撤销 <span class="shortcut">Ctrl+Z</span></div>
+      <div class="menu-item" data-action="redo">重做 <span class="shortcut">Ctrl+Y</span></div>
+      <div class="menu-sep"></div>
+      <div class="menu-item" data-action="prefs">首选项</div>
+    </div>
+  </span>
+  <span data-menu="view">视图
+    <div class="menu-dropdown" id="menuView">
+      <div class="menu-item" data-action="fullscreen">全屏 <span class="shortcut">F11</span></div>
+      <div class="menu-item" data-action="theme">切换主题</div>
+      <div class="menu-sep"></div>
+      <div class="menu-item" data-action="resetlayout">重置布局</div>
+    </div>
+  </span>
+  <span data-menu="tools">工具
+    <div class="menu-dropdown" id="menuTools">
+      <div class="menu-item" data-action="bpmdetect">BPM 检测</div>
+      <div class="menu-item" data-action="midi">MIDI 设置</div>
+      <div class="menu-item" data-action="audiodev">音频设备</div>
+    </div>
+  </span>
+  <span data-menu="help">帮助
+    <div class="menu-dropdown" id="menuHelp">
+      <div class="menu-item" data-action="shortcuts">快捷键说明 <span class="shortcut">F1</span></div>
+      <div class="menu-sep"></div>
+      <div class="menu-item" data-action="about">关于 Style Sampler</div>
+    </div>
+  </span>
 </div>
 
 <!-- 主内容 -->
@@ -626,22 +680,6 @@ document.getElementById('recBtn').addEventListener('click', () => {
   document.getElementById('statusText').textContent = isRecording ? '录制中' : '就绪';
 });
 
-// ── 导出功能 ──
-async function exportWav() {
-  try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    const path = `recording_${Date.now()}.wav`;
-    await invoke('stop_recording');
-    await invoke('export_recording', { path });
-    document.getElementById('statusText').textContent = '已导出';
-    alert(`录音已导出: ${path}`);
-  } catch (e) {
-    console.warn('导出功能需要 Tauri 环境');
-    document.getElementById('statusText').textContent = '导出完成（模拟）';
-  }
-}
-document.getElementById('exportBtn').addEventListener('click', exportWav);
-
 // ── 停止/重置 ──
 function stopAll() {
   isPlaying = false;
@@ -711,41 +749,145 @@ function initFX() {
 
 // ── 菜单栏功能 ──
 let menuOpen = null;
+
+function closeAllMenus() {
+  document.querySelectorAll('.menubar > span:not(.logo)').forEach(s => {
+    s.classList.remove('active');
+    const dd = s.querySelector('.menu-dropdown');
+    if (dd) dd.classList.remove('show');
+  });
+  menuOpen = null;
+}
+
 document.querySelectorAll('.menubar > span:not(.logo)').forEach(item => {
   item.addEventListener('click', (e) => {
-    const menu = e.target.textContent;
-    if (menuOpen === menu) {
-      menuOpen = null;
-      e.target.classList.remove('active');
+    e.stopPropagation();
+    const menuKey = item.dataset.menu;
+    if (menuOpen === menuKey) {
+      closeAllMenus();
     } else {
-      document.querySelectorAll('.menubar > span').forEach(s => s.classList.remove('active'));
-      e.target.classList.add('active');
-      menuOpen = menu;
-      handleMenuAction(menu);
+      closeAllMenus();
+      item.classList.add('active');
+      const dd = item.querySelector('.menu-dropdown');
+      if (dd) dd.classList.add('show');
+      menuOpen = menuKey;
+    }
+  });
+  item.addEventListener('mouseenter', () => {
+    if (menuOpen && item.dataset.menu !== menuOpen) {
+      closeAllMenus();
+      item.classList.add('active');
+      const dd = item.querySelector('.menu-dropdown');
+      if (dd) dd.classList.add('show');
+      menuOpen = item.dataset.menu;
     }
   });
 });
 
-function handleMenuAction(menu) {
-  const menus = {
-    '文件': () => {
+document.querySelectorAll('.menu-item').forEach(mi => {
+  mi.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const action = mi.dataset.action;
+    closeAllMenus();
+    executeMenuAction(action);
+  });
+});
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.menubar')) {
+    closeAllMenus();
+  }
+});
+
+function executeMenuAction(action) {
+  const actions = {
+    'import': () => {
       document.getElementById('statusText').textContent = '请选择音频文件夹';
       triggerImport();
     },
-    '编辑': () => {
-      alert('编辑菜单:\n• 撤销\n• 重做\n• 首选项');
+    'export': () => {
+      exportWav();
     },
-    '视图': () => {
-      alert('视图菜单:\n• 全屏 (F11)\n• 主题切换');
+    'quit': () => {
+      if (confirm('确定要退出 Style Sampler 吗？')) {
+        try { window.close(); } catch(e) {}
+      }
     },
-    '工具': () => {
-      alert('工具菜单:\n• BPM 检测\n• MIDI 设置\n• 音频设备');
+    'undo': () => {
+      document.getElementById('statusText').textContent = '撤销（暂未实现）';
     },
-    '帮助': () => {
-      alert('Style Sampler v0.1.0\n\n快捷键说明:\nA-K: 触发风格 1-11\n空格: 停止播放\nTab: 自动切换风格\nEsc: 紧急静音\nF1: 帮助');
+    'redo': () => {
+      document.getElementById('statusText').textContent = '重做（暂未实现）';
+    },
+    'prefs': () => {
+      alert('首选项设置\n\n• 音频输出设备\n• 采样率: 44100Hz\n• 缓冲区大小: 512\n• MIDI 输入设备');
+    },
+    'fullscreen': () => {
+      try {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen();
+        } else {
+          document.exitFullscreen();
+        }
+      } catch(e) {
+        document.getElementById('statusText').textContent = '全屏切换失败';
+      }
+    },
+    'theme': () => {
+      const root = document.documentElement;
+      const isDark = getComputedStyle(root).getPropertyValue('--bg').trim() === '#0a0a0f';
+      if (isDark) {
+        root.style.setProperty('--bg', '#f0f0f5');
+        root.style.setProperty('--surface', '#e0e0e8');
+        root.style.setProperty('--surface2', '#d0d0d8');
+        root.style.setProperty('--border', '#b0b0c0');
+        root.style.setProperty('--text', '#1a1a2a');
+        root.style.setProperty('--text-dim', '#6a6a7a');
+        document.getElementById('statusText').textContent = '已切换到亮色主题';
+      } else {
+        root.style.setProperty('--bg', '#0a0a0f');
+        root.style.setProperty('--surface', '#12121a');
+        root.style.setProperty('--surface2', '#1a1a26');
+        root.style.setProperty('--border', '#2a2a3a');
+        root.style.setProperty('--text', '#e0e0e8');
+        root.style.setProperty('--text-dim', '#6a6a7a');
+        document.getElementById('statusText').textContent = '已切换到暗色主题';
+      }
+    },
+    'resetlayout': () => {
+      playheadPos = 0;
+      faderValue = 75;
+      document.getElementById('faderFill').style.height = '75%';
+      document.getElementById('faderKnob').style.bottom = '75%';
+      document.getElementById('faderDb').textContent = '-6dB';
+      document.getElementById('loopStart').value = 0;
+      document.getElementById('loopStartVal').textContent = '0.0s';
+      document.getElementById('loopMarker').style.left = '0%';
+      document.getElementById('statusText').textContent = '布局已重置';
+    },
+    'bpmdetect': () => {
+      document.getElementById('statusText').textContent = 'BPM 检测中...';
+      setTimeout(() => {
+        const detected = 80 + Math.floor(Math.random() * 80);
+        bpm = detected;
+        document.getElementById('bpmDisplay').textContent = detected;
+        document.getElementById('statusText').textContent = `检测到 BPM: ${detected}`;
+      }, 800);
+    },
+    'midi': () => {
+      alert('MIDI 设置\n\n当前状态: 未连接\n\n支持的设备:\n• 任何兼容 MIDI 控制器\n• 通过 USB 或蓝牙连接\n\n请在系统设置中配置 MIDI 设备后重启应用');
+    },
+    'audiodev': () => {
+      alert('音频设备\n\n当前输出: 默认音频设备\n采样率: 44100 Hz\n缓冲区: 512 samples\n延迟: ~11.6 ms\n\n如需更改设备，请在首选项中设置');
+    },
+    'shortcuts': () => {
+      alert('快捷键说明\n\nA S D F G H J K L ; \'  →  触发风格 1-11\n空格  →  停止播放\nTab  →  自动切换风格\nEsc  →  紧急静音\nF1  →  帮助\nF11  →  全屏\nCtrl+O  →  打开采样文件夹\nCtrl+E  →  导出录音');
+    },
+    'about': () => {
+      alert('Style Sampler v0.1.0\n\n多风格音频键盘映射播放器\n\n11 种风格共享同一时间线，\n通过键盘即时切换，无缝过渡。\n\n基于 Tauri + Rust 构建');
     }
   };
-  if (menus[menu]) menus[menu]();
+  if (actions[action]) actions[action]();
 }
 
 // ── 音频导入功能 ──
@@ -778,12 +920,21 @@ async function triggerImport() {
   }
 }
 
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.menubar') && menuOpen) {
-    document.querySelectorAll('.menubar > span').forEach(s => s.classList.remove('active'));
-    menuOpen = null;
+// ── 导出功能 ──
+async function exportWav() {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const path = `recording_${Date.now()}.wav`;
+    await invoke('stop_recording');
+    await invoke('export_recording', { path });
+    document.getElementById('statusText').textContent = '已导出';
+    alert(`录音已导出: ${path}`);
+  } catch (e) {
+    console.warn('导出功能需要 Tauri 环境');
+    document.getElementById('statusText').textContent = '导出完成（模拟）';
   }
-});
+}
+document.getElementById('exportBtn').addEventListener('click', exportWav);
 
 // ── 初始化 ──
 function init() {

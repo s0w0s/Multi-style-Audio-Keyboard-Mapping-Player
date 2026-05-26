@@ -5,7 +5,8 @@
   "identifier": "com.stylesampler.app",
   "build": {
     "frontendDist": ".",
-    "beforeBuildCommand": ""
+    "beforeBuildCommand": "",
+    "withGlobalTauri": true
   },
   "app": {
     "windows": [

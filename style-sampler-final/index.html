@@ -903,10 +903,10 @@ let audioLoaded = false;
 
 async function triggerImport() {
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    const { open } = await import('@tauri-apps/plugin-dialog');
+    const tauri = window.__TAURI__;
+    if (!tauri) throw new Error('Tauri API not available');
 
-    const selected = await open({
+    const selected = await tauri.dialog.open({
       directory: true,
       multiple: false,
       title: '选择音频采样文件夹'
@@ -914,7 +914,7 @@ async function triggerImport() {
 
     if (selected) {
       document.getElementById('statusText').textContent = '加载中...';
-      await invoke('load_sample_directory', { dirPath: selected });
+      await tauri.core.invoke('load_sample_directory', { dirPath: selected });
       audioLoaded = true;
       document.getElementById('statusText').textContent = '音频已加载';
       alert('✓ 音频采样加载成功！\n\n请将音频文件放入文件夹并按以下顺序命名：\n01.mp3/wav, 02.mp3/wav, ... 11.mp3/wav');
@@ -931,14 +931,16 @@ async function triggerImport() {
 // ── 导出功能 ──
 async function exportWav() {
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
+    const tauri = window.__TAURI__;
+    if (!tauri) throw new Error('Tauri API not available');
+
     const path = `recording_${Date.now()}.wav`;
-    await invoke('stop_recording');
-    await invoke('export_recording', { path });
+    await tauri.core.invoke('stop_recording');
+    await tauri.core.invoke('export_recording', { path });
     document.getElementById('statusText').textContent = '已导出';
     alert(`录音已导出: ${path}`);
   } catch (e) {
-    console.warn('导出功能需要 Tauri 环境');
+    console.warn('导出功能需要 Tauri 环境:', e);
     document.getElementById('statusText').textContent = '导出完成（模拟）';
   }
 }

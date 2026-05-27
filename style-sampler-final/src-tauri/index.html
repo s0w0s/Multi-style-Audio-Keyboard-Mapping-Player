@@ -538,21 +538,29 @@ function initPads() {
   });
 }
 
+function tauriInvoke(cmd, args) {
+  try {
+    const tauri = window.__TAURI__;
+    if (tauri && tauri.core) {
+      tauri.core.invoke(cmd, args).catch(e => console.warn(cmd, 'failed:', e));
+    }
+  } catch(e) {}
+}
+
 function activatePad(id) {
   const style = STYLES.find(s => s.id === id);
   if (!style) return;
   activeStyle = id;
   isPlaying = true;
-  // 更新UI
   document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
   document.querySelector(`.pad[data-style="${id}"]`)?.classList.add('active');
   document.getElementById('currentStyle').textContent = `风格${String(id).padStart(2,'0')} · ${style.name}`;
   document.getElementById('currentStyle').style.color = style.color;
   document.getElementById('statusStyle').textContent = String(id).padStart(2,'0');
   document.getElementById('statusText').textContent = '播放中';
-  // 如果播放头在末尾，回到循环起点
   const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
   if (playheadPos >= DURATION - 0.05) playheadPos = loopStart;
+  tauriInvoke('play_style', { styleIndex: id - 1 });
 }
 
 function deactivatePad() {
@@ -560,6 +568,7 @@ function deactivatePad() {
     isPlaying = false;
     document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
     document.getElementById('statusText').textContent = '暂停';
+    tauriInvoke('stop_all', {});
   }
 }
 
@@ -745,6 +754,7 @@ function stopAll() {
   document.getElementById('statusText').textContent = '就绪';
   document.getElementById('currentStyle').textContent = '未选择风格';
   document.getElementById('currentStyle').style.color = 'var(--text-dim)';
+  tauriInvoke('stop_all', {});
 }
 document.getElementById('stopBtn').addEventListener('click', stopAll);
 document.getElementById('resetBtn').addEventListener('click', () => { playheadPos = 0; });
@@ -760,6 +770,7 @@ function updateFader(e) {
   document.getElementById('faderKnob').style.bottom = `${faderValue}%`;
   const db = faderValue > 0 ? Math.round(20 * Math.log10(faderValue / 100)) : -Infinity;
   document.getElementById('faderDb').textContent = db > -60 ? `${db}dB` : '-∞';
+  tauriInvoke('set_volume', { volume: faderValue });
 }
 faderTrack.addEventListener('mousedown', (e) => { faderDragging = true; updateFader(e); });
 document.addEventListener('mousemove', (e) => { if (faderDragging) updateFader(e); });
@@ -771,6 +782,7 @@ document.getElementById('loopStart').addEventListener('input', (e) => {
   const t = (v / 100 * DURATION).toFixed(1);
   document.getElementById('loopStartVal').textContent = `${t}s`;
   document.getElementById('loopMarker').style.left = `${v}%`;
+  tauriInvoke('set_loop_start', { position: v / 100 * DURATION });
 });
 
 // ── 效果器旋钮 ──
@@ -1004,6 +1016,17 @@ function init() {
   window.addEventListener('resize', drawWaveform);
 
   document.getElementById('loadBtn').addEventListener('click', triggerImport);
+
+  document.getElementById('loopMode').addEventListener('change', (e) => {
+    tauriInvoke('set_loop_mode', { mode: e.target.value });
+  });
+  document.getElementById('triggerMode').addEventListener('change', (e) => {
+    tauriInvoke('set_trigger_mode', { mode: e.target.value });
+  });
+
+  tauriInvoke('set_volume', { volume: faderValue });
+  tauriInvoke('set_loop_mode', { mode: document.getElementById('loopMode').value });
+  tauriInvoke('set_trigger_mode', { mode: document.getElementById('triggerMode').value });
 }
 init();
 </script>

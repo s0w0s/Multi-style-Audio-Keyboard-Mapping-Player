@@ -959,16 +959,15 @@ async function triggerImport() {
     const tauri = window.__TAURI__;
     if (!tauri || !tauri.core) throw new Error('Tauri API not available');
 
-    const selected = await tauri.core.invoke('pick_folder');
+    document.getElementById('statusText').textContent = '请选择文件夹...';
+    const result = await tauri.core.invoke('load_sample_directory', {});
 
-    if (selected) {
-      document.getElementById('statusText').textContent = '加载中...';
-      await tauri.core.invoke('load_sample_directory', { dirPath: selected });
+    if (result === 'cancelled') {
+      document.getElementById('statusText').textContent = '就绪';
+    } else if (result === 'loaded') {
       audioLoaded = true;
       document.getElementById('statusText').textContent = '音频已加载';
       showModal('加载成功', '✓ 音频采样加载成功！\n\n请将音频文件放入文件夹并按以下顺序命名：\n01.mp3/wav, 02.mp3/wav, ... 11.mp3/wav');
-    } else {
-      document.getElementById('statusText').textContent = '就绪';
     }
   } catch (e) {
     console.warn('导入失败:', e);

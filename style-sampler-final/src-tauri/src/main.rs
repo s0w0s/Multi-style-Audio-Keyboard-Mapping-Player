@@ -28,7 +28,6 @@ fn main() {
             recorder: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
-            ipc::commands::load_samples,
             ipc::commands::load_sample_directory,
             ipc::commands::play_style,
             ipc::commands::stop_all,

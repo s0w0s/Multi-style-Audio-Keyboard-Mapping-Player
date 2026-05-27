@@ -9,57 +9,33 @@ pub struct AppState {
 }
 
 #[tauri::command]
-pub fn pick_folder() -> Result<Option<String>, String> {
-    let folder = rfd::FileDialog::new()
-        .set_title("选择音频采样文件夹")
-        .pick_folder();
-    match folder {
-        Some(f) => Ok(Some(f.to_string_lossy().to_string())),
-        None => Ok(None),
-    }
-}
-
-#[tauri::command]
-pub async fn load_samples(
-    paths: Vec<String>,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
-    let engine = state.engine.lock().map_err(|e| e.to_string())?;
-    
-    let mut sm = engine.sample_manager.write();
-    
-    for (i, path) in paths.iter().enumerate().take(11) {
-        let path = std::path::Path::new(path);
-        if let Err(e) = sm.load_sample(i, path) {
-            log::warn!("Failed to load sample {}: {}", path.display(), e);
-        }
-    }
-    
-    let duration = sm.get_duration();
-    drop(sm);
-    
-    engine.playhead.set_total_duration(duration);
-    
-    Ok(())
-}
-
-#[tauri::command]
 pub async fn load_sample_directory(
-    dir_path: String,
+    dir_path: Option<String>,
     state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<String, String> {
+    let dir = match dir_path {
+        Some(p) if !p.is_empty() => std::path::PathBuf::from(p),
+        _ => {
+            let folder = rfd::FileDialog::new()
+                .set_title("选择音频采样文件夹")
+                .pick_folder();
+            match folder {
+                Some(f) => f,
+                None => return Ok("cancelled".to_string()),
+            }
+        }
+    };
+
     let engine = state.engine.lock().map_err(|e| e.to_string())?;
-    let path = std::path::Path::new(&dir_path);
-    
     let mut sm = engine.sample_manager.write();
-    sm.load_directory(path).map_err(|e| e.to_string())?;
+    sm.load_directory(&dir).map_err(|e| e.to_string())?;
     
     let duration = sm.get_duration();
     drop(sm);
     
     engine.playhead.set_total_duration(duration);
     
-    Ok(())
+    Ok("loaded".to_string())
 }
 
 #[tauri::command]

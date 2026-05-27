@@ -9,13 +9,12 @@ pub struct AppState {
 }
 
 #[tauri::command]
-pub async fn pick_folder() -> Result<Option<String>, String> {
-    let folder = rfd::AsyncFileDialog::new()
+pub fn pick_folder() -> Result<Option<String>, String> {
+    let folder = rfd::FileDialog::new()
         .set_title("选择音频采样文件夹")
-        .pick_folder()
-        .await;
+        .pick_folder();
     match folder {
-        Some(f) => Ok(Some(f.path().to_string_lossy().to_string())),
+        Some(f) => Ok(Some(f.to_string_lossy().to_string())),
         None => Ok(None),
     }
 }

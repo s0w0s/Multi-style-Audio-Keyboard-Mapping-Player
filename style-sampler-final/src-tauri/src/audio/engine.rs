@@ -22,6 +22,7 @@ pub struct AudioEngine {
     delay: Arc<RwLock<Delay>>,
     distortion: Arc<RwLock<Distortion>>,
     chorus: Arc<RwLock<Chorus>>,
+    stream: Option<cpal::Stream>,
 }
 
 unsafe impl Send for AudioEngine {}
@@ -55,7 +56,7 @@ impl AudioEngine {
         Self {
             sample_manager: Arc::new(RwLock::new(SampleManager::new())),
             playhead: Arc::new(Playhead::new()),
-            active_style: Arc::new(AtomicUsize::new(11)),
+            active_style: Arc::new(AtomicUsize::new(0)),
             master_volume: Arc::new(RwLock::new(0.8)),
             key_pressed: Arc::new(AtomicBool::new(false)),
             trigger_mode: Arc::new(RwLock::new(TriggerMode::Gate)),
@@ -68,6 +69,7 @@ impl AudioEngine {
             delay: Arc::new(RwLock::new(Delay::new(sample_rate as f32))),
             distortion: Arc::new(RwLock::new(Distortion::new())),
             chorus: Arc::new(RwLock::new(Chorus::new(sample_rate as f32))),
+            stream: None,
         }
     }
 
@@ -114,19 +116,7 @@ impl AudioEngine {
                 let is_playing = playhead.is_playing();
                 
                 if is_playing {
-                    let position = playhead.get_position();
-                    let duration = *playhead.total_duration.read();
-                    
-                    if position >= duration {
-                        let lm = *loop_mode.read();
-                        if lm != LoopMode::Off && key_pressed.load(Ordering::SeqCst) {
-                            playhead.set_position(*playhead.loop_start.read());
-                        } else {
-                            playhead.pause();
-                        }
-                    } else {
-                        playhead.advance(dt);
-                    }
+                    playhead.advance(dt);
                 }
                 
                 let volume = *master_volume.read();
@@ -137,39 +127,50 @@ impl AudioEngine {
                 if let Some(sample_arc) = sm.get_sample(style) {
                     let sample = sample_arc.read();
                     let position = playhead.get_position();
-                    let start_sample = (position * sample.sample_rate as f32 * sample.channels as f32) as usize;
-                    
+                    let src_sr = sample.sample_rate as f32;
+                    let src_ch = sample.channels as usize;
+                    let src_idx = (position * src_sr) as usize;
                     let sample_data = &sample.data;
                     
                     for frame in 0..frame_count {
-                        let sample_idx = start_sample + frame * sample.channels as usize;
+                        let idx = src_idx + frame;
                         
-                        let mut out_sample = if sample_idx < sample_data.len() - 1 {
-                            let left = sample_data[sample_idx];
-                            let right = if sample_idx + 1 < sample_data.len() {
-                                sample_data[sample_idx + 1]
+                        let mut out_l = 0.0f32;
+                        let mut out_r = 0.0f32;
+                        
+                        if idx * src_ch + src_ch <= sample_data.len() {
+                            if src_ch >= 2 {
+                                out_l = sample_data[idx * src_ch];
+                                out_r = sample_data[idx * src_ch + 1];
                             } else {
-                                left
-                            };
-                            (left + right) * 0.5 * volume
-                        } else {
-                            0.0
-                        };
+                                out_l = sample_data[idx * src_ch];
+                                out_r = out_l;
+                            }
+                        }
                         
-                        let mut mono_sample = out_sample;
+                        let mut mono = (out_l + out_r) * 0.5 * volume;
                         
-                        mono_sample = lowpass.write().process_sample(mono_sample);
-                        mono_sample = highpass.write().process_sample(mono_sample);
-                        mono_sample = reverb.write().process_sample(mono_sample);
-                        mono_sample = delay.write().process_sample(mono_sample);
-                        mono_sample = distortion.write().process_sample(mono_sample);
-                        mono_sample = chorus.write().process_sample(mono_sample);
+                        mono = lowpass.write().process_sample(mono);
+                        mono = highpass.write().process_sample(mono);
+                        mono = reverb.write().process_sample(mono);
+                        mono = delay.write().process_sample(mono);
+                        mono = distortion.write().process_sample(mono);
+                        mono = chorus.write().process_sample(mono);
                         
-                        out_sample = mono_sample;
-                        
-                        data[frame * channels] = out_sample;
+                        data[frame * channels] = mono;
                         if channels > 1 {
-                            data[frame * channels + 1] = out_sample;
+                            data[frame * channels + 1] = mono;
+                        }
+                    }
+                } else if is_playing {
+                    let position = playhead.get_position();
+                    let freq = 220.0 * (1.0 + style as f32 * 0.15);
+                    for frame in 0..frame_count {
+                        let t = position + frame as f32 / sample_rate as f32;
+                        let val = (t * freq * 2.0 * std::f32::consts::PI).sin() * 0.15 * volume;
+                        data[frame * channels] = val;
+                        if channels > 1 {
+                            data[frame * channels + 1] = val;
                         }
                     }
                 } else {
@@ -185,6 +186,8 @@ impl AudioEngine {
         )?;
 
         stream.play()?;
+        
+        self.stream = Some(stream);
         
         log::info!("Audio engine initialized successfully");
         Ok(())

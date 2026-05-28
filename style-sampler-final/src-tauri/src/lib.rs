@@ -28,6 +28,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             ipc::commands::load_sample_directory,
+            ipc::commands::list_audio_files,
+            ipc::commands::read_audio_file,
             ipc::commands::play_style,
             ipc::commands::stop_all,
             ipc::commands::set_volume,

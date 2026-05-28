@@ -609,27 +609,23 @@ function setWebAudioVolume(v) {
   if (masterGain) masterGain.gain.value = Math.max(0, Math.min(1, v / 100));
 }
 
-async function loadAudioFromFolder(dirPath) {
+async function loadAudioFromFolder(files) {
   initWebAudio();
   const tauri = window.__TAURI__;
   if (!tauri || !tauri.core) return;
 
-  try {
-    const files = await tauri.core.invoke('list_audio_files', { dirPath });
-    for (let i = 0; i < Math.min(files.length, 11); i++) {
-      try {
-        const arrayBuf = await tauri.core.invoke('read_audio_file', { path: files[i] });
-        const decoded = await audioCtx.decodeAudioData(arrayBuf.buffer || arrayBuf);
-        audioBuffers[i] = decoded;
-      } catch(e) {
-        console.warn('Failed to decode:', files[i], e);
-      }
+  for (let i = 0; i < Math.min(files.length, 11); i++) {
+    try {
+      const bytes = await tauri.core.invoke('read_audio_file', { path: files[i] });
+      const arrayBuffer = bytes.buffer ? bytes.buffer : new Uint8Array(bytes).buffer;
+      const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+      audioBuffers[i] = decoded;
+    } catch(e) {
+      console.warn('Failed to decode:', files[i], e);
     }
-    if (audioBuffers.some(b => b)) {
-      audioLoaded = true;
-    }
-  } catch(e) {
-    console.warn('list_audio_files not available:', e);
+  }
+  if (audioBuffers.some(b => b)) {
+    audioLoaded = true;
   }
 }
 
@@ -1063,17 +1059,16 @@ async function triggerImport() {
     document.getElementById('statusText').textContent = '请选择文件夹...';
     const result = await tauri.core.invoke('load_sample_directory', {});
 
-    if (result === 'cancelled') {
+    if (result.status === 'cancelled') {
       document.getElementById('statusText').textContent = '就绪';
-    } else if (result === 'loaded' || (typeof result === 'object' && result.path)) {
-      audioLoaded = true;
-      document.getElementById('statusText').textContent = '音频已加载';
-      // Also decode audio using Web Audio API
-      const dirPath = typeof result === 'object' && result.path ? result.path : null;
-      if (dirPath) {
-        await loadAudioFromFolder(dirPath);
+    } else if (result.status === 'loaded') {
+      document.getElementById('statusText').textContent = '解码音频中...';
+      if (result.files && result.files.length > 0) {
+        await loadAudioFromFolder(result.files);
       }
-      showModal('加载成功', '✓ 音频采样加载成功！\n\n请将音频文件放入文件夹并按以下顺序命名：\n01.mp3/wav, 02.mp3/wav, ... 11.mp3/wav');
+      audioLoaded = true;
+      document.getElementById('statusText').textContent = '音频已加载 (' + (result.files ? result.files.length : 0) + ' 个文件)';
+      showModal('加载成功', '✓ 音频采样加载成功！\n\n已加载 ' + (result.files ? result.files.length : 0) + ' 个音频文件\n\n按键盘 A~\' 键触发对应风格播放');
     }
   } catch (e) {
     console.warn('导入失败:', e);

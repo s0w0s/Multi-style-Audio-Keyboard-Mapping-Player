@@ -496,12 +496,12 @@ const STYLES = [
 ];
 
 const FX_LIST = [
-  { label:'LOW',  name:'低通滤波', value:72 },
-  { label:'HIGH', name:'高通滤波', value:0 },
-  { label:'REV',  name:'混响',     value:30 },
-  { label:'DLY',  name:'延迟',     value:20 },
-  { label:'DIST', name:'失真',     value:0 },
-  { label:'PAN',  name:'声像',     value:50 },
+  { label:'LOW',  name:'低通滤波', value:72,  effect:'lowpass',    param:'cutoff' },
+  { label:'HIGH', name:'高通滤波', value:0,   effect:'highpass',   param:'cutoff' },
+  { label:'REV',  name:'混响',     value:30,  effect:'reverb',     param:'mix' },
+  { label:'DLY',  name:'延迟',     value:20,  effect:'delay',      param:'time' },
+  { label:'DIST', name:'失真',     value:0,   effect:'distortion', param:'amount' },
+  { label:'CHO',  name:'合唱',     value:0,   effect:'chorus',     param:'mix' },
 ];
 
 // ── 状态 ──
@@ -980,8 +980,14 @@ function initFX() {
       fx.value = Math.max(0, Math.min(100, startVal + delta));
       kEl.style.transform = `rotate(${fx.value * 2.7 - 135}deg)`;
       document.getElementById(`fxVal${i}`).textContent = `${Math.round(fx.value)}%`;
+      tauriInvoke('set_effect_param', { effect: fx.effect, param: fx.param, value: fx.value });
     });
-    document.addEventListener('mouseup', () => { dragging = false; });
+    document.addEventListener('mouseup', () => {
+      if (dragging) {
+        tauriInvoke('set_effect_param', { effect: fx.effect, param: fx.param, value: fx.value });
+      }
+      dragging = false;
+    });
     row.appendChild(knob);
   });
 }

@@ -109,5 +109,21 @@ impl Reverb {
 
     pub fn update_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
+        self.comb_delays = vec![
+            (sample_rate * 0.0297) as usize,
+            (sample_rate * 0.0371) as usize,
+            (sample_rate * 0.0411) as usize,
+            (sample_rate * 0.0437) as usize,
+        ];
+        self.comb_buffers = self.comb_delays.iter().map(|d| vec![0.0; *d]).collect();
+        self.comb_write_pos = vec![0usize; 4];
+        self.allpass_delays = vec![
+            (sample_rate * 0.0197) as usize,
+            (sample_rate * 0.0271) as usize,
+            (sample_rate * 0.0311) as usize,
+            (sample_rate * 0.0337) as usize,
+        ];
+        self.allpass_buffers = self.allpass_delays.iter().map(|d| vec![0.0; *d]).collect();
+        self.allpass_write_pos = vec![0usize; 4];
     }
 }

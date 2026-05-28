@@ -496,10 +496,10 @@ const STYLES = [
 ];
 
 const FX_LIST = [
-  { label:'LOW',  name:'低通滤波', value:72,  effect:'lowpass',    param:'cutoff' },
+  { label:'LOW',  name:'低通滤波', value:100, effect:'lowpass',    param:'cutoff' },
   { label:'HIGH', name:'高通滤波', value:0,   effect:'highpass',   param:'cutoff' },
-  { label:'REV',  name:'混响',     value:30,  effect:'reverb',     param:'mix' },
-  { label:'DLY',  name:'延迟',     value:20,  effect:'delay',      param:'time' },
+  { label:'REV',  name:'混响',     value:0,   effect:'reverb',     param:'mix' },
+  { label:'DLY',  name:'延迟',     value:0,   effect:'delay',      param:'time' },
   { label:'DIST', name:'失真',     value:0,   effect:'distortion', param:'amount' },
   { label:'CHO',  name:'合唱',     value:0,   effect:'chorus',     param:'mix' },
 ];
@@ -556,13 +556,175 @@ let audioLoaded = false;
 let playheadStartTime = 0;
 let playheadOffset = 0;
 let currentPlaybackStyle = null;
+let fxNodes = {};
 
 function initWebAudio() {
   if (audioCtx) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
   masterGain = audioCtx.createGain();
   masterGain.gain.value = 0.75;
   masterGain.connect(audioCtx.destination);
+
+  fxNodes.lowpass = audioCtx.createBiquadFilter();
+  fxNodes.lowpass.type = 'lowpass';
+  fxNodes.lowpass.frequency.value = 20000;
+  fxNodes.lowpass.Q.value = 1.0;
+
+  fxNodes.highpass = audioCtx.createBiquadFilter();
+  fxNodes.highpass.type = 'highpass';
+  fxNodes.highpass.frequency.value = 20;
+  fxNodes.highpass.Q.value = 1.0;
+
+  fxNodes.distortion = audioCtx.createWaveShaper();
+  fxNodes.distortion.oversample = '4x';
+  fxNodes.distortionDry = audioCtx.createGain();
+  fxNodes.distortionDry.gain.value = 1.0;
+  fxNodes.distortionWet = audioCtx.createGain();
+  fxNodes.distortionWet.gain.value = 0.0;
+
+  fxNodes.delayNode = audioCtx.createDelay(2.0);
+  fxNodes.delayNode.delayTime.value = 0.3;
+  fxNodes.delayFeedback = audioCtx.createGain();
+  fxNodes.delayFeedback.gain.value = 0.4;
+  fxNodes.delayWet = audioCtx.createGain();
+  fxNodes.delayWet.gain.value = 0.0;
+
+  fxNodes.reverbConvolver = audioCtx.createConvolver();
+  fxNodes.reverbWet = audioCtx.createGain();
+  fxNodes.reverbWet.gain.value = 0.0;
+  try {
+    fxNodes.reverbConvolver.buffer = createReverbIR(2.0, 3.0);
+  } catch(e) {
+    console.warn('Reverb IR failed:', e);
+  }
+
+  fxNodes.chorusDelay = audioCtx.createDelay(0.05);
+  fxNodes.chorusDelay.delayTime.value = 0.005;
+  fxNodes.chorusLFO = audioCtx.createOscillator();
+  fxNodes.chorusLFO.type = 'sine';
+  fxNodes.chorusLFO.frequency.value = 0.5;
+  fxNodes.chorusLFOGain = audioCtx.createGain();
+  fxNodes.chorusLFOGain.gain.value = 0.002;
+  fxNodes.chorusWet = audioCtx.createGain();
+  fxNodes.chorusWet.gain.value = 0.0;
+  fxNodes.chorusLFO.connect(fxNodes.chorusLFOGain);
+  fxNodes.chorusLFOGain.connect(fxNodes.chorusDelay.delayTime);
+  fxNodes.chorusLFO.start();
+
+  fxNodes.lowpass.connect(fxNodes.highpass);
+
+  fxNodes.highpass.connect(fxNodes.distortionDry);
+  fxNodes.distortionDry.connect(masterGain);
+
+  fxNodes.highpass.connect(fxNodes.distortion);
+  fxNodes.distortion.connect(fxNodes.distortionWet);
+  fxNodes.distortionWet.connect(masterGain);
+
+  fxNodes.highpass.connect(fxNodes.delayNode);
+  fxNodes.delayNode.connect(fxNodes.delayFeedback);
+  fxNodes.delayFeedback.connect(fxNodes.delayNode);
+  fxNodes.delayNode.connect(fxNodes.delayWet);
+  fxNodes.delayWet.connect(masterGain);
+
+  fxNodes.highpass.connect(fxNodes.reverbConvolver);
+  fxNodes.reverbConvolver.connect(fxNodes.reverbWet);
+  fxNodes.reverbWet.connect(masterGain);
+
+  fxNodes.highpass.connect(fxNodes.chorusDelay);
+  fxNodes.chorusDelay.connect(fxNodes.chorusWet);
+  fxNodes.chorusWet.connect(masterGain);
+}
+
+function createReverbIR(duration, decay) {
+  const length = Math.floor(audioCtx.sampleRate * duration);
+  const ir = audioCtx.createBuffer(2, length, audioCtx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = ir.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+    }
+  }
+  return ir;
+}
+
+function updateDistortionCurve(amount) {
+  if (!fxNodes.distortion) return;
+  if (amount <= 0.001) {
+    fxNodes.distortion.curve = null;
+    return;
+  }
+  const k = 1 + amount * 50;
+  const samples = 44100;
+  const curve = new Float32Array(samples);
+  for (let i = 0; i < samples; i++) {
+    const x = (i * 2) / samples - 1;
+    curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+  }
+  fxNodes.distortion.curve = curve;
+}
+
+function setWebAudioEffect(effect, param, value) {
+  if (!fxNodes.lowpass) return;
+  switch (effect) {
+    case 'lowpass': {
+      const cutoff = 20 * Math.pow(1000, value / 100);
+      fxNodes.lowpass.frequency.setValueAtTime(cutoff, audioCtx.currentTime);
+      break;
+    }
+    case 'highpass': {
+      const cutoff = 20 * Math.pow(100, value / 100);
+      fxNodes.highpass.frequency.setValueAtTime(cutoff, audioCtx.currentTime);
+      break;
+    }
+    case 'reverb': {
+      fxNodes.reverbWet.gain.setValueAtTime(value / 100, audioCtx.currentTime);
+      break;
+    }
+    case 'delay': {
+      const t = audioCtx.currentTime;
+      switch (param) {
+        case 'time':
+          fxNodes.delayNode.delayTime.setValueAtTime(value / 100 * 2, t);
+          fxNodes.delayWet.gain.setValueAtTime(value > 0 ? 0.5 : 0, t);
+          break;
+        case 'feedback':
+          fxNodes.delayFeedback.gain.setValueAtTime(value / 100 * 0.9, t);
+          break;
+        case 'mix':
+          fxNodes.delayWet.gain.setValueAtTime(value / 100, t);
+          break;
+        default:
+          fxNodes.delayNode.delayTime.setValueAtTime(value / 100 * 2, t);
+          fxNodes.delayWet.gain.setValueAtTime(value > 0 ? 0.5 : 0, t);
+      }
+      break;
+    }
+    case 'distortion': {
+      const amount = value / 100;
+      updateDistortionCurve(amount);
+      fxNodes.distortionDry.gain.setValueAtTime(1 - amount * 0.8, audioCtx.currentTime);
+      fxNodes.distortionWet.gain.setValueAtTime(amount, audioCtx.currentTime);
+      break;
+    }
+    case 'chorus': {
+      const t = audioCtx.currentTime;
+      switch (param) {
+        case 'mix':
+          fxNodes.chorusWet.gain.setValueAtTime(value / 100, t);
+          break;
+        case 'rate':
+          fxNodes.chorusLFO.frequency.setValueAtTime(value / 100 * 5, t);
+          break;
+        case 'depth':
+          fxNodes.chorusLFOGain.gain.setValueAtTime(value / 100 * 0.005, t);
+          break;
+        default:
+          fxNodes.chorusWet.gain.setValueAtTime(value / 100, t);
+      }
+      break;
+    }
+  }
 }
 
 const STYLE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 698.46];
@@ -592,7 +754,7 @@ function startPlaybackAt(styleId, offset) {
     const source = audioCtx.createBufferSource();
     source.buffer = buffer;
     source.loop = false;
-    source.connect(masterGain);
+    source.connect(fxNodes.lowpass);
 
     const clampedOffset = Math.max(0, Math.min(offset, buffer.duration - 0.001));
     source.start(0, clampedOffset);
@@ -625,7 +787,7 @@ function startPlaybackAt(styleId, offset) {
     const oscGain = audioCtx.createGain();
     oscGain.gain.value = 0.25;
     osc.connect(oscGain);
-    oscGain.connect(masterGain);
+    oscGain.connect(fxNodes.lowpass);
     osc.start(0);
     activeSource = { osc, gain: oscGain, isSynth: true };
   }
@@ -980,10 +1142,12 @@ function initFX() {
       fx.value = Math.max(0, Math.min(100, startVal + delta));
       kEl.style.transform = `rotate(${fx.value * 2.7 - 135}deg)`;
       document.getElementById(`fxVal${i}`).textContent = `${Math.round(fx.value)}%`;
+      setWebAudioEffect(fx.effect, fx.param, fx.value);
       tauriInvoke('set_effect_param', { effect: fx.effect, param: fx.param, value: fx.value });
     });
     document.addEventListener('mouseup', () => {
       if (dragging) {
+        setWebAudioEffect(fx.effect, fx.param, fx.value);
         tauriInvoke('set_effect_param', { effect: fx.effect, param: fx.param, value: fx.value });
       }
       dragging = false;

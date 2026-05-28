@@ -384,6 +384,7 @@ body{
       <input type="number" id="bpmInput" class="bpm-input" value="128" min="30" max="300" step="1">
       <div class="bpm-beat" id="bpmBeat"></div>
       <div class="bpm-btn" id="tapBtn">TAP</div>
+      <div class="bpm-btn" id="autoBtn">AUTO</div>
     </div>
   </div>
 
@@ -514,6 +515,8 @@ let playheadPos = 0;
 let DURATION = 8;
 let bpm = 128;
 let lastBeatTime = 0;
+let autoMode = false;
+let autoTimer = null;
 let animFrame = null;
 let faderValue = 75;
 
@@ -922,6 +925,7 @@ document.addEventListener('keydown', (e) => {
     activatePad(keyMap[k]);
   }
   if (k === ' ') { e.preventDefault(); stopAll(); }
+  if (k === 'tab') { e.preventDefault(); toggleAuto(); }
 });
 document.addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
@@ -1050,6 +1054,32 @@ document.getElementById('bpmInput').addEventListener('change', (e) => {
 document.getElementById('bpmInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') e.target.blur();
 });
+
+// ── 自动切换 ──
+function toggleAuto() {
+  autoMode = !autoMode;
+  const btn = document.getElementById('autoBtn');
+  btn.classList.toggle('active', autoMode);
+  if (autoMode) startAutoSwitch();
+  else clearTimeout(autoTimer);
+}
+
+function startAutoSwitch() {
+  clearTimeout(autoTimer);
+  const doSwitch = () => {
+    if (!autoMode) return;
+    const beats = [1, 2, 3, 4];
+    const beatCount = beats[Math.floor(Math.random() * beats.length)];
+    const interval = (60 / bpm) * beatCount * 1000;
+    let nextId;
+    do { nextId = Math.floor(Math.random() * 11) + 1; } while (nextId === activeStyle);
+    activatePad(nextId);
+    autoTimer = setTimeout(doSwitch, interval);
+  };
+  doSwitch();
+}
+
+document.getElementById('autoBtn').addEventListener('click', toggleAuto);
 
 // ── 停止/重置 ──
 function stopAll() {

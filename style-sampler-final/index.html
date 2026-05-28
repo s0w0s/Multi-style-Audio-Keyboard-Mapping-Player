@@ -547,6 +547,92 @@ function tauriInvoke(cmd, args) {
   } catch(e) {}
 }
 
+// ── Web Audio API 音频引擎 ──
+let audioCtx = null;
+let masterGain = null;
+let activeOscillators = {};
+let audioBuffers = [];
+let audioLoaded = false;
+
+function initWebAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.75;
+  masterGain.connect(audioCtx.destination);
+}
+
+const STYLE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 698.46];
+const STYLE_WAVES = ['sawtooth','square','triangle','sine','sawtooth','square','triangle','sine','sawtooth','square','triangle'];
+
+function playWebAudio(styleId) {
+  initWebAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  stopWebAudio();
+
+  const idx = styleId - 1;
+  if (audioLoaded && audioBuffers[idx]) {
+    const source = audioCtx.createBufferSource();
+    source.buffer = audioBuffers[idx];
+    source.loop = true;
+    source.connect(masterGain);
+    source.start(0);
+    activeOscillators[styleId] = source;
+  } else {
+    const osc = audioCtx.createOscillator();
+    osc.type = STYLE_WAVES[idx] || 'sine';
+    osc.frequency.value = STYLE_FREQS[idx] || 440;
+
+    const oscGain = audioCtx.createGain();
+    oscGain.gain.value = 0.25;
+    osc.connect(oscGain);
+    oscGain.connect(masterGain);
+    osc.start(0);
+    activeOscillators[styleId] = { osc, gain: oscGain };
+  }
+}
+
+function stopWebAudio() {
+  for (const id in activeOscillators) {
+    try {
+      const node = activeOscillators[id];
+      if (node instanceof OscillatorNode) { node.stop(); node.disconnect(); }
+      else if (node instanceof AudioBufferSourceNode) { node.stop(); node.disconnect(); }
+      else if (node.osc) { node.osc.stop(); node.osc.disconnect(); node.gain.disconnect(); }
+    } catch(e) {}
+    delete activeOscillators[id];
+  }
+}
+
+function setWebAudioVolume(v) {
+  if (masterGain) masterGain.gain.value = Math.max(0, Math.min(1, v / 100));
+}
+
+async function loadAudioFromFolder(dirPath) {
+  initWebAudio();
+  const tauri = window.__TAURI__;
+  if (!tauri || !tauri.core) return;
+
+  try {
+    const files = await tauri.core.invoke('list_audio_files', { dirPath });
+    for (let i = 0; i < Math.min(files.length, 11); i++) {
+      try {
+        const arrayBuf = await tauri.core.invoke('read_audio_file', { path: files[i] });
+        const decoded = await audioCtx.decodeAudioData(arrayBuf.buffer || arrayBuf);
+        audioBuffers[i] = decoded;
+      } catch(e) {
+        console.warn('Failed to decode:', files[i], e);
+      }
+    }
+    if (audioBuffers.some(b => b)) {
+      audioLoaded = true;
+    }
+  } catch(e) {
+    console.warn('list_audio_files not available:', e);
+  }
+}
+
 function activatePad(id) {
   const style = STYLES.find(s => s.id === id);
   if (!style) return;
@@ -560,6 +646,7 @@ function activatePad(id) {
   document.getElementById('statusText').textContent = '播放中';
   const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
   if (playheadPos >= DURATION - 0.05) playheadPos = loopStart;
+  playWebAudio(id);
   tauriInvoke('play_style', { styleIndex: id - 1 });
 }
 
@@ -568,6 +655,7 @@ function deactivatePad() {
     isPlaying = false;
     document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
     document.getElementById('statusText').textContent = '暂停';
+    stopWebAudio();
     tauriInvoke('stop_all', {});
   }
 }
@@ -754,6 +842,7 @@ function stopAll() {
   document.getElementById('statusText').textContent = '就绪';
   document.getElementById('currentStyle').textContent = '未选择风格';
   document.getElementById('currentStyle').style.color = 'var(--text-dim)';
+  stopWebAudio();
   tauriInvoke('stop_all', {});
 }
 document.getElementById('stopBtn').addEventListener('click', stopAll);
@@ -770,6 +859,7 @@ function updateFader(e) {
   document.getElementById('faderKnob').style.bottom = `${faderValue}%`;
   const db = faderValue > 0 ? Math.round(20 * Math.log10(faderValue / 100)) : -Infinity;
   document.getElementById('faderDb').textContent = db > -60 ? `${db}dB` : '-∞';
+  setWebAudioVolume(faderValue);
   tauriInvoke('set_volume', { volume: faderValue });
 }
 faderTrack.addEventListener('mousedown', (e) => { faderDragging = true; updateFader(e); });
@@ -976,9 +1066,14 @@ async function triggerImport() {
 
     if (result === 'cancelled') {
       document.getElementById('statusText').textContent = '就绪';
-    } else if (result === 'loaded') {
+    } else if (result === 'loaded' || (typeof result === 'object' && result.path)) {
       audioLoaded = true;
       document.getElementById('statusText').textContent = '音频已加载';
+      // Also decode audio using Web Audio API
+      const dirPath = typeof result === 'object' && result.path ? result.path : null;
+      if (dirPath) {
+        await loadAudioFromFolder(dirPath);
+      }
       showModal('加载成功', '✓ 音频采样加载成功！\n\n请将音频文件放入文件夹并按以下顺序命名：\n01.mp3/wav, 02.mp3/wav, ... 11.mp3/wav');
     }
   } catch (e) {

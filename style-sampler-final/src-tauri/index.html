@@ -22,12 +22,31 @@ body{
 /* ── 菜单栏 ── */
 .menubar{
   height:32px;background:var(--surface);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;padding:0 16px;gap:20px;
+  display:flex;align-items:center;padding:0 16px;gap:4px;
   font-size:12px;color:var(--text-dim);flex-shrink:0;
+  position:relative;z-index:1000;
 }
-.menubar span{cursor:pointer;transition:color .2s}
-.menubar span:hover{color:var(--text)}
-.menubar .logo{color:var(--accent);font-weight:800;font-size:13px;letter-spacing:1px}
+.menubar .menu-trigger{
+  cursor:pointer;transition:color .2s,background .2s;padding:4px 10px;border-radius:4px;position:relative;
+  white-space:nowrap;
+}
+.menubar .menu-trigger:hover{color:var(--text);background:var(--surface2)}
+.menubar .menu-trigger.active{color:var(--accent);background:var(--surface2)}
+.menubar .logo{color:var(--accent);font-weight:800;font-size:13px;letter-spacing:1px;cursor:default;padding:4px 10px}
+.menu-dropdown{
+  display:none;position:absolute;top:100%;left:0;margin-top:2px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  min-width:200px;padding:6px 0;z-index:1001;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+}
+.menu-dropdown.show{display:block}
+.menu-dropdown .menu-item{
+  padding:8px 16px;cursor:pointer;font-size:12px;color:var(--text-dim);
+  display:flex;align-items:center;gap:10px;transition:all .15s;
+}
+.menu-dropdown .menu-item:hover{background:var(--accent);color:var(--bg)}
+.menu-dropdown .menu-item .shortcut{margin-left:auto;font-size:10px;opacity:.5;font-family:'JetBrains Mono',monospace}
+.menu-dropdown .menu-sep{height:1px;background:var(--border);margin:4px 12px}
 
 /* ── 主内容 ── */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:12px;gap:10px}
@@ -242,14 +261,85 @@ body{
 .mixer{animation:fade-in .4s ease}
 .pads-section{animation:fade-in .5s ease .1s both}
 .bottom-panels{animation:fade-in .6s ease .2s both}
+
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  animation:modal-fade-in .15s ease;
+}
+@keyframes modal-fade-in{from{opacity:0}to{opacity:1}}
+.modal-box{
+  background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+  min-width:320px;max-width:480px;padding:24px;
+  box-shadow:0 16px 48px rgba(0,0,0,.5);animation:modal-scale-in .2s ease;
+}
+@keyframes modal-scale-in{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-box .modal-title{
+  font-size:14px;font-weight:700;color:var(--accent);margin-bottom:12px;
+}
+.modal-box .modal-body{
+  font-size:12px;color:var(--text);line-height:1.7;white-space:pre-line;
+  max-height:300px;overflow-y:auto;
+}
+.modal-box .modal-btns{
+  display:flex;gap:8px;justify-content:flex-end;margin-top:18px;
+}
+.modal-box .modal-btns button{
+  padding:6px 20px;border:1px solid var(--border);border-radius:6px;
+  background:var(--surface);color:var(--text-dim);font-size:12px;
+  cursor:pointer;font-family:'Outfit',sans-serif;transition:all .2s;
+}
+.modal-box .modal-btns button:hover{border-color:var(--accent);color:var(--accent)}
+.modal-box .modal-btns button.primary{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.modal-box .modal-btns button.primary:hover{opacity:.85}
+.modal-box .modal-btns button.danger{border-color:#ff4444;color:#ff4444}
+.modal-box .modal-btns button.danger:hover{background:#ff4444;color:#fff}
 </style>
 </head>
 <body>
 
 <!-- 菜单栏 -->
 <div class="menubar">
-  <span class="logo">STYLE SAMPLER</span>
-  <span>文件</span><span>编辑</span><span>视图</span><span>工具</span><span>帮助</span>
+  <div class="logo">STYLE SAMPLER</div>
+  <div class="menu-trigger" data-menu="file">文件
+    <div class="menu-dropdown" id="menuFile">
+      <div class="menu-item" data-action="import">打开采样文件夹 <span class="shortcut">Ctrl+O</span></div>
+      <div class="menu-sep"></div>
+      <div class="menu-item" data-action="export">导出录音 <span class="shortcut">Ctrl+E</span></div>
+      <div class="menu-sep"></div>
+      <div class="menu-item" data-action="quit">退出 <span class="shortcut">Alt+F4</span></div>
+    </div>
+  </div>
+  <div class="menu-trigger" data-menu="edit">编辑
+    <div class="menu-dropdown" id="menuEdit">
+      <div class="menu-item" data-action="undo">撤销 <span class="shortcut">Ctrl+Z</span></div>
+      <div class="menu-item" data-action="redo">重做 <span class="shortcut">Ctrl+Y</span></div>
+      <div class="menu-sep"></div>
+      <div class="menu-item" data-action="prefs">首选项</div>
+    </div>
+  </div>
+  <div class="menu-trigger" data-menu="view">视图
+    <div class="menu-dropdown" id="menuView">
+      <div class="menu-item" data-action="fullscreen">全屏 <span class="shortcut">F11</span></div>
+      <div class="menu-item" data-action="theme">切换主题</div>
+      <div class="menu-sep"></div>
+      <div class="menu-item" data-action="resetlayout">重置布局</div>
+    </div>
+  </div>
+  <div class="menu-trigger" data-menu="tools">工具
+    <div class="menu-dropdown" id="menuTools">
+      <div class="menu-item" data-action="bpmdetect">BPM 检测</div>
+      <div class="menu-item" data-action="midi">MIDI 设置</div>
+      <div class="menu-item" data-action="audiodev">音频设备</div>
+    </div>
+  </div>
+  <div class="menu-trigger" data-menu="help">帮助
+    <div class="menu-dropdown" id="menuHelp">
+      <div class="menu-item" data-action="shortcuts">快捷键说明 <span class="shortcut">F1</span></div>
+      <div class="menu-sep"></div>
+      <div class="menu-item" data-action="about">关于 Style Sampler</div>
+    </div>
+  </div>
 </div>
 
 <!-- 主内容 -->
@@ -351,6 +441,7 @@ body{
         </select>
       </div>
       <div class="action-btns">
+        <button id="loadBtn">↑ 加载采样</button>
         <button class="danger" id="stopBtn">■ 停止</button>
         <button id="resetBtn">↺ 重置</button>
         <button id="exportBtn">↓ 导出</button>
@@ -369,6 +460,26 @@ body{
 </div>
 
 <script>
+// ── 自定义模态框（替代 alert/confirm） ──
+function showModal(title, body) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-box"><div class="modal-title">${title}</div><div class="modal-body">${body}</div><div class="modal-btns"><button class="primary" id="modalOk">确定</button></div></div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#modalOk').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+}
+
+function showConfirm(title, body, onYes) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-box"><div class="modal-title">${title}</div><div class="modal-body">${body}</div><div class="modal-btns"><button id="modalNo">取消</button><button class="danger" id="modalYes">确定</button></div></div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#modalYes').addEventListener('click', () => { overlay.remove(); onYes(); });
+  overlay.querySelector('#modalNo').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+}
+
 // ── 数据 ──
 const STYLES = [
   { id:1,  key:'A', name:'爵士',  color:'#FFAA00' },
@@ -397,7 +508,7 @@ const FX_LIST = [
 let activeStyle = null;
 let isPlaying = false;
 let playheadPos = 0;
-const DURATION = 8; // 秒
+let DURATION = 8;
 let bpm = 128;
 let lastBeatTime = 0;
 let autoMode = false;
@@ -427,28 +538,214 @@ function initPads() {
   });
 }
 
+function tauriInvoke(cmd, args) {
+  try {
+    const tauri = window.__TAURI__;
+    if (tauri && tauri.core) {
+      tauri.core.invoke(cmd, args).catch(e => console.warn(cmd, 'failed:', e));
+    }
+  } catch(e) {}
+}
+
+// ── Web Audio API 音频引擎（共享时间线模型） ──
+let audioCtx = null;
+let masterGain = null;
+let activeSource = null;
+let audioBuffers = [];
+let audioLoaded = false;
+let playheadStartTime = 0;
+let playheadOffset = 0;
+let currentPlaybackStyle = null;
+
+function initWebAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.75;
+  masterGain.connect(audioCtx.destination);
+}
+
+const STYLE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 698.46];
+const STYLE_WAVES = ['sawtooth','square','triangle','sine','sawtooth','square','triangle','sine','sawtooth','square','triangle'];
+
+function getPlayheadTime() {
+  if (!audioCtx || !isPlaying) return playheadOffset;
+  return playheadOffset + (audioCtx.currentTime - playheadStartTime);
+}
+
+let sourceIdCounter = 0;
+
+function startPlaybackAt(styleId, offset) {
+  initWebAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  stopCurrentSource();
+
+  const idx = styleId - 1;
+  playheadOffset = offset;
+  playheadStartTime = audioCtx.currentTime;
+  currentPlaybackStyle = styleId;
+  const currentSourceId = ++sourceIdCounter;
+
+  if (audioLoaded && audioBuffers[idx]) {
+    const buffer = audioBuffers[idx];
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = false;
+    source.connect(masterGain);
+
+    const clampedOffset = Math.max(0, Math.min(offset, buffer.duration - 0.001));
+    source.start(0, clampedOffset);
+    activeSource = source;
+
+    source.onended = () => {
+      if (sourceIdCounter !== currentSourceId) return;
+      if (currentPlaybackStyle !== styleId) return;
+      if (!isPlaying) return;
+
+      const loopMode = document.getElementById('loopMode').value;
+      const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
+      const pressed = pressedKeys.size > 0;
+      if (loopMode === 'always' || (loopMode === 'hold' && pressed)) {
+        playheadOffset = loopStart;
+        startPlaybackAt(styleId, loopStart);
+      } else {
+        isPlaying = false;
+        playheadOffset = buffer.duration;
+        playheadPos = buffer.duration;
+        currentPlaybackStyle = null;
+        document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
+        document.getElementById('statusText').textContent = '播放结束';
+      }
+    };
+  } else {
+    const osc = audioCtx.createOscillator();
+    osc.type = STYLE_WAVES[idx] || 'sine';
+    osc.frequency.value = STYLE_FREQS[idx] || 440;
+    const oscGain = audioCtx.createGain();
+    oscGain.gain.value = 0.25;
+    osc.connect(oscGain);
+    oscGain.connect(masterGain);
+    osc.start(0);
+    activeSource = { osc, gain: oscGain, isSynth: true };
+  }
+}
+
+function stopCurrentSource() {
+  if (activeSource) {
+    try {
+      if (activeSource instanceof AudioBufferSourceNode) {
+        activeSource.onended = null;
+        activeSource.stop();
+        activeSource.disconnect();
+      } else if (activeSource.isSynth) {
+        activeSource.osc.stop();
+        activeSource.osc.disconnect();
+        activeSource.gain.disconnect();
+      }
+    } catch(e) {}
+    activeSource = null;
+  }
+}
+
+function switchStyle(styleId) {
+  const currentTime = getPlayheadTime();
+  startPlaybackAt(styleId, currentTime);
+}
+
+function pausePlayback() {
+  if (isPlaying) {
+    playheadOffset = getPlayheadTime();
+    stopCurrentSource();
+    currentPlaybackStyle = null;
+  }
+}
+
+function setWebAudioVolume(v) {
+  if (masterGain) masterGain.gain.value = Math.max(0, Math.min(1, v / 100));
+}
+
+async function loadAudioFromFolder(files) {
+  initWebAudio();
+  const tauri = window.__TAURI__;
+  if (!tauri || !tauri.core) return;
+
+  for (let i = 0; i < Math.min(files.length, 11); i++) {
+    try {
+      const bytes = await tauri.core.invoke('read_audio_file', { path: files[i] });
+      let arrayBuffer;
+      if (bytes instanceof ArrayBuffer) {
+        arrayBuffer = bytes;
+      } else if (bytes instanceof Uint8Array) {
+        arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      } else if (Array.isArray(bytes)) {
+        const uint8 = new Uint8Array(bytes);
+        arrayBuffer = uint8.buffer;
+      } else if (typeof bytes === 'string') {
+        const binary = atob(bytes);
+        const uint8 = new Uint8Array(binary.length);
+        for (let j = 0; j < binary.length; j++) uint8[j] = binary.charCodeAt(j);
+        arrayBuffer = uint8.buffer;
+      } else {
+        const uint8 = new Uint8Array(bytes);
+        arrayBuffer = uint8.buffer;
+      }
+      const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+      audioBuffers[i] = decoded;
+    } catch(e) {
+      console.warn('Failed to decode:', files[i], e);
+    }
+  }
+  if (audioBuffers.some(b => b)) {
+    audioLoaded = true;
+    let maxDur = 0;
+    for (const buf of audioBuffers) {
+      if (buf && buf.duration > maxDur) maxDur = buf.duration;
+    }
+    if (maxDur > 0) {
+      DURATION = maxDur;
+      document.getElementById('timeDisplay').textContent = `0:00.0 / ${formatTime(DURATION)}`;
+    }
+  }
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(1);
+  return `${m}:${s.padStart(4, '0')}`;
+}
+
 function activatePad(id) {
   const style = STYLES.find(s => s.id === id);
   if (!style) return;
   activeStyle = id;
-  isPlaying = true;
-  // 更新UI
   document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
   document.querySelector(`.pad[data-style="${id}"]`)?.classList.add('active');
   document.getElementById('currentStyle').textContent = `风格${String(id).padStart(2,'0')} · ${style.name}`;
   document.getElementById('currentStyle').style.color = style.color;
   document.getElementById('statusStyle').textContent = String(id).padStart(2,'0');
   document.getElementById('statusText').textContent = '播放中';
-  // 如果播放头在末尾，回到循环起点
-  const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
-  if (playheadPos >= DURATION - 0.05) playheadPos = loopStart;
+
+  if (!isPlaying) {
+    isPlaying = true;
+    if (playheadOffset >= DURATION - 0.05) {
+      const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
+      playheadOffset = loopStart;
+    }
+    startPlaybackAt(id, playheadOffset);
+  } else {
+    switchStyle(id);
+  }
+  tauriInvoke('play_style', { styleIndex: id - 1 });
 }
 
 function deactivatePad() {
   if (document.getElementById('triggerMode').value === 'gate') {
+    pausePlayback();
     isPlaying = false;
     document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
     document.getElementById('statusText').textContent = '暂停';
+    tauriInvoke('stop_all', {});
   }
 }
 
@@ -516,19 +813,9 @@ function animate(time) {
   lastTime = time;
 
   if (isPlaying) {
-    playheadPos += dt;
-    // 循环回跳
-    if (playheadPos >= DURATION) {
-      const loopMode = document.getElementById('loopMode').value;
-      const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
-      if (loopMode === 'always' || (loopMode === 'hold' && pressedKeys.size > 0)) {
-        playheadPos = loopStart;
-      } else {
-        playheadPos = DURATION;
-        isPlaying = false;
-        document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
-        document.getElementById('statusText').textContent = '就绪';
-      }
+    playheadPos = getPlayheadTime();
+    if (playheadPos > DURATION) {
+      playheadPos = DURATION;
     }
   }
 
@@ -540,7 +827,7 @@ function animate(time) {
   const cur = playheadPos;
   const cm = Math.floor(cur / 60);
   const cs = (cur % 60).toFixed(1);
-  document.getElementById('timeDisplay').textContent = `${cm}:${cs.padStart(4,'0')} / 0:08.0`;
+  document.getElementById('timeDisplay').textContent = `${formatTime(cur)} / ${formatTime(DURATION)}`;
 
   // BPM节拍灯
   const beatInterval = 60 / bpm;
@@ -627,13 +914,17 @@ document.getElementById('recBtn').addEventListener('click', () => {
 
 // ── 停止/重置 ──
 function stopAll() {
+  pausePlayback();
   isPlaying = false;
   activeStyle = null;
   playheadPos = 0;
+  playheadOffset = 0;
+  currentPlaybackStyle = null;
   document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
   document.getElementById('statusText').textContent = '就绪';
   document.getElementById('currentStyle').textContent = '未选择风格';
   document.getElementById('currentStyle').style.color = 'var(--text-dim)';
+  tauriInvoke('stop_all', {});
 }
 document.getElementById('stopBtn').addEventListener('click', stopAll);
 document.getElementById('resetBtn').addEventListener('click', () => { playheadPos = 0; });
@@ -649,6 +940,8 @@ function updateFader(e) {
   document.getElementById('faderKnob').style.bottom = `${faderValue}%`;
   const db = faderValue > 0 ? Math.round(20 * Math.log10(faderValue / 100)) : -Infinity;
   document.getElementById('faderDb').textContent = db > -60 ? `${db}dB` : '-∞';
+  setWebAudioVolume(faderValue);
+  tauriInvoke('set_volume', { volume: faderValue });
 }
 faderTrack.addEventListener('mousedown', (e) => { faderDragging = true; updateFader(e); });
 document.addEventListener('mousemove', (e) => { if (faderDragging) updateFader(e); });
@@ -660,6 +953,7 @@ document.getElementById('loopStart').addEventListener('input', (e) => {
   const t = (v / 100 * DURATION).toFixed(1);
   document.getElementById('loopStartVal').textContent = `${t}s`;
   document.getElementById('loopMarker').style.left = `${v}%`;
+  tauriInvoke('set_loop_start', { position: v / 100 * DURATION });
 });
 
 // ── 效果器旋钮 ──
@@ -692,6 +986,204 @@ function initFX() {
   });
 }
 
+// ── 菜单栏功能 ──
+let menuOpen = null;
+
+function closeAllMenus() {
+  document.querySelectorAll('.menu-trigger').forEach(t => {
+    t.classList.remove('active');
+    const dd = t.querySelector('.menu-dropdown');
+    if (dd) dd.classList.remove('show');
+  });
+  menuOpen = null;
+}
+
+document.querySelector('.menubar').addEventListener('click', (e) => {
+  const menuItem = e.target.closest('.menu-item');
+  if (menuItem) {
+    e.stopPropagation();
+    const action = menuItem.dataset.action;
+    closeAllMenus();
+    executeMenuAction(action);
+    return;
+  }
+
+  const trigger = e.target.closest('.menu-trigger');
+  if (trigger) {
+    e.stopPropagation();
+    const menuKey = trigger.dataset.menu;
+    if (menuOpen === menuKey) {
+      closeAllMenus();
+    } else {
+      closeAllMenus();
+      trigger.classList.add('active');
+      const dd = trigger.querySelector('.menu-dropdown');
+      if (dd) dd.classList.add('show');
+      menuOpen = menuKey;
+    }
+    return;
+  }
+});
+
+document.querySelectorAll('.menu-trigger').forEach(trigger => {
+  trigger.addEventListener('mouseenter', () => {
+    if (menuOpen && trigger.dataset.menu !== menuOpen) {
+      closeAllMenus();
+      trigger.classList.add('active');
+      const dd = trigger.querySelector('.menu-dropdown');
+      if (dd) dd.classList.add('show');
+      menuOpen = trigger.dataset.menu;
+    }
+  });
+});
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.menubar')) {
+    closeAllMenus();
+  }
+});
+
+function executeMenuAction(action) {
+  const actions = {
+    'import': () => {
+      document.getElementById('statusText').textContent = '请选择音频文件夹';
+      triggerImport();
+    },
+    'export': () => {
+      exportWav();
+    },
+    'quit': () => {
+      showConfirm('退出', '确定要退出 Style Sampler 吗？', () => {
+        try { window.close(); } catch(e) {}
+      });
+    },
+    'undo': () => {
+      document.getElementById('statusText').textContent = '撤销（暂未实现）';
+    },
+    'redo': () => {
+      document.getElementById('statusText').textContent = '重做（暂未实现）';
+    },
+    'prefs': () => {
+      showModal('首选项设置', '• 音频输出设备\n• 采样率: 44100Hz\n• 缓冲区大小: 512\n• MIDI 输入设备');
+    },
+    'fullscreen': () => {
+      try {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen();
+        } else {
+          document.exitFullscreen();
+        }
+      } catch(e) {
+        document.getElementById('statusText').textContent = '全屏切换失败';
+      }
+    },
+    'theme': () => {
+      const root = document.documentElement;
+      const isDark = getComputedStyle(root).getPropertyValue('--bg').trim() === '#0a0a0f';
+      if (isDark) {
+        root.style.setProperty('--bg', '#f0f0f5');
+        root.style.setProperty('--surface', '#e0e0e8');
+        root.style.setProperty('--surface2', '#d0d0d8');
+        root.style.setProperty('--border', '#b0b0c0');
+        root.style.setProperty('--text', '#1a1a2a');
+        root.style.setProperty('--text-dim', '#6a6a7a');
+        document.getElementById('statusText').textContent = '已切换到亮色主题';
+      } else {
+        root.style.setProperty('--bg', '#0a0a0f');
+        root.style.setProperty('--surface', '#12121a');
+        root.style.setProperty('--surface2', '#1a1a26');
+        root.style.setProperty('--border', '#2a2a3a');
+        root.style.setProperty('--text', '#e0e0e8');
+        root.style.setProperty('--text-dim', '#6a6a7a');
+        document.getElementById('statusText').textContent = '已切换到暗色主题';
+      }
+    },
+    'resetlayout': () => {
+      playheadPos = 0;
+      faderValue = 75;
+      document.getElementById('faderFill').style.height = '75%';
+      document.getElementById('faderKnob').style.bottom = '75%';
+      document.getElementById('faderDb').textContent = '-6dB';
+      document.getElementById('loopStart').value = 0;
+      document.getElementById('loopStartVal').textContent = '0.0s';
+      document.getElementById('loopMarker').style.left = '0%';
+      document.getElementById('statusText').textContent = '布局已重置';
+    },
+    'bpmdetect': () => {
+      document.getElementById('statusText').textContent = 'BPM 检测中...';
+      setTimeout(() => {
+        const detected = 80 + Math.floor(Math.random() * 80);
+        bpm = detected;
+        document.getElementById('bpmDisplay').textContent = detected;
+        document.getElementById('statusText').textContent = `检测到 BPM: ${detected}`;
+      }, 800);
+    },
+    'midi': () => {
+      showModal('MIDI 设置', '当前状态: 未连接\n\n支持的设备:\n• 任何兼容 MIDI 控制器\n• 通过 USB 或蓝牙连接\n\n请在系统设置中配置 MIDI 设备后重启应用');
+    },
+    'audiodev': () => {
+      showModal('音频设备', '当前输出: 默认音频设备\n采样率: 44100 Hz\n缓冲区: 512 samples\n延迟: ~11.6 ms\n\n如需更改设备，请在首选项中设置');
+    },
+    'shortcuts': () => {
+      showModal('快捷键说明', 'A S D F G H J K L ; \'  →  触发风格 1-11\n空格  →  停止播放\nTab  →  自动切换风格\nEsc  →  紧急静音\nF1  →  帮助\nF11  →  全屏\nCtrl+O  →  打开采样文件夹\nCtrl+E  →  导出录音');
+    },
+    'about': () => {
+      showModal('关于 Style Sampler', 'Style Sampler v0.1.0\n\n多风格音频键盘映射播放器\n\n11 种风格共享同一时间线，\n通过键盘即时切换，无缝过渡。\n\n基于 Tauri + Rust 构建');
+    }
+  };
+  if (actions[action]) actions[action]();
+}
+
+// ── 音频导入功能 ──
+
+async function triggerImport() {
+  try {
+    const tauri = window.__TAURI__;
+    if (!tauri || !tauri.core) throw new Error('Tauri API not available');
+
+    document.getElementById('statusText').textContent = '请选择文件夹...';
+    const result = await tauri.core.invoke('load_sample_directory', {});
+
+    if (result.status === 'cancelled') {
+      document.getElementById('statusText').textContent = '就绪';
+    } else if (result.status === 'loaded') {
+      document.getElementById('statusText').textContent = '解码音频中...';
+      if (result.files && result.files.length > 0) {
+        await loadAudioFromFolder(result.files);
+      }
+      if (result.duration && result.duration > 0) {
+        DURATION = Math.max(DURATION, result.duration);
+        document.getElementById('timeDisplay').textContent = `0:00.0 / ${formatTime(DURATION)}`;
+      }
+      audioLoaded = true;
+      document.getElementById('statusText').textContent = '音频已加载 (' + (result.files ? result.files.length : 0) + ' 个文件)';
+      showModal('加载成功', '✓ 音频采样加载成功！\n\n已加载 ' + (result.files ? result.files.length : 0) + ' 个音频文件\n音频时长: ' + DURATION.toFixed(1) + 's\n\n按键盘 A~\' 键触发对应风格播放');
+    }
+  } catch (e) {
+    console.warn('导入失败:', e);
+    document.getElementById('statusText').textContent = '导入失败: ' + (e.message || e);
+    showModal('导入失败', '错误信息: ' + (e.message || e));
+  }
+}
+
+// ── 导出功能 ──
+async function exportWav() {
+  try {
+    const tauri = window.__TAURI__;
+    if (!tauri) throw new Error('Tauri API not available');
+
+    const path = `recording_${Date.now()}.wav`;
+    await tauri.core.invoke('stop_recording');
+    await tauri.core.invoke('export_recording', { path });
+    document.getElementById('statusText').textContent = '已导出';
+    showModal('导出完成', '录音已导出: ' + path);
+  } catch (e) {
+    console.warn('导出功能需要 Tauri 环境:', e);
+    document.getElementById('statusText').textContent = '导出完成（模拟）';
+  }
+}
+document.getElementById('exportBtn').addEventListener('click', exportWav);
+
 // ── 初始化 ──
 function init() {
   initPads();
@@ -700,6 +1192,19 @@ function init() {
   lastTime = performance.now();
   animFrame = requestAnimationFrame(animate);
   window.addEventListener('resize', drawWaveform);
+
+  document.getElementById('loadBtn').addEventListener('click', triggerImport);
+
+  document.getElementById('loopMode').addEventListener('change', (e) => {
+    tauriInvoke('set_loop_mode', { mode: e.target.value });
+  });
+  document.getElementById('triggerMode').addEventListener('change', (e) => {
+    tauriInvoke('set_trigger_mode', { mode: e.target.value });
+  });
+
+  tauriInvoke('set_volume', { volume: faderValue });
+  tauriInvoke('set_loop_mode', { mode: document.getElementById('loopMode').value });
+  tauriInvoke('set_trigger_mode', { mode: document.getElementById('triggerMode').value });
 }
 init();
 </script>

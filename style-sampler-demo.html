@@ -351,6 +351,7 @@ body{
         </select>
       </div>
       <div class="action-btns">
+        <button id="loadBtn">↑ 加载采样</button>
         <button class="danger" id="stopBtn">■ 停止</button>
         <button id="resetBtn">↺ 重置</button>
         <button id="exportBtn">↓ 导出</button>
@@ -692,6 +693,98 @@ function initFX() {
   });
 }
 
+// ── 菜单栏功能 ──
+let menuOpen = null;
+document.querySelectorAll('.menubar > span:not(.logo)').forEach(item => {
+  item.addEventListener('click', (e) => {
+    const menu = e.target.textContent;
+    if (menuOpen === menu) {
+      menuOpen = null;
+      e.target.classList.remove('active');
+    } else {
+      document.querySelectorAll('.menubar > span').forEach(s => s.classList.remove('active'));
+      e.target.classList.add('active');
+      menuOpen = menu;
+      handleMenuAction(menu);
+    }
+  });
+});
+
+function handleMenuAction(menu) {
+  const menus = {
+    '文件': () => {
+      document.getElementById('statusText').textContent = '请选择音频文件夹';
+      triggerImport();
+    },
+    '编辑': () => {
+      alert('编辑菜单:\n• 撤销\n• 重做\n• 首选项');
+    },
+    '视图': () => {
+      alert('视图菜单:\n• 全屏 (F11)\n• 主题切换');
+    },
+    '工具': () => {
+      alert('工具菜单:\n• BPM 检测\n• MIDI 设置\n• 音频设备');
+    },
+    '帮助': () => {
+      alert('Style Sampler v0.1.0\n\n快捷键说明:\nA-K: 触发风格 1-11\n空格: 停止播放\nTab: 自动切换风格\nEsc: 紧急静音\nF1: 帮助');
+    }
+  };
+  if (menus[menu]) menus[menu]();
+}
+
+// ── 音频导入功能 ──
+let audioLoaded = false;
+
+async function triggerImport() {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const { open } = await import('@tauri-apps/plugin-dialog');
+
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: '选择音频采样文件夹'
+    });
+
+    if (selected) {
+      document.getElementById('statusText').textContent = '加载中...';
+      await invoke('load_sample_directory', { dirPath: selected });
+      audioLoaded = true;
+      document.getElementById('statusText').textContent = '音频已加载';
+      alert('✓ 音频采样加载成功！\n\n请将音频文件放入文件夹并按以下顺序命名：\n01.mp3/wav, 02.mp3/wav, ... 11.mp3/wav');
+    } else {
+      document.getElementById('statusText').textContent = '就绪';
+    }
+  } catch (e) {
+    console.warn('导入功能需要 Tauri 环境:', e);
+    document.getElementById('statusText').textContent = '就绪（演示模式）';
+    alert('演示模式提示：\n\n在 Tauri 应用中：\n1. 点击"文件"菜单选择采样文件夹\n2. 或点击设置面板中的"加载采样"按钮\n\n采样要求：\n• 11 个等长音频文件\n• 支持格式: MP3, WAV, FLAC\n• 命名: 01, 02, 03 ... 11\n• 推荐时长: 2-8 秒');
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.menubar') && menuOpen) {
+    document.querySelectorAll('.menubar > span').forEach(s => s.classList.remove('active'));
+    menuOpen = null;
+  }
+});
+
+// ── 导出功能 ──
+async function exportWav() {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const path = `recording_${Date.now()}.wav`;
+    await invoke('stop_recording');
+    await invoke('export_recording', { path });
+    document.getElementById('statusText').textContent = '已导出';
+    alert(`录音已导出: ${path}`);
+  } catch (e) {
+    console.warn('导出功能需要 Tauri 环境');
+    document.getElementById('statusText').textContent = '导出完成（模拟）';
+  }
+}
+document.getElementById('exportBtn').addEventListener('click', exportWav);
+
 // ── 初始化 ──
 function init() {
   initPads();
@@ -700,6 +793,8 @@ function init() {
   lastTime = performance.now();
   animFrame = requestAnimationFrame(animate);
   window.addEventListener('resize', drawWaveform);
+
+  document.getElementById('loadBtn').addEventListener('click', triggerImport);
 }
 init();
 </script>

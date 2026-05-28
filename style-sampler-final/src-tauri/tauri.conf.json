@@ -8,6 +8,7 @@
     "beforeBuildCommand": ""
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "多风格音频键盘映射播放器",

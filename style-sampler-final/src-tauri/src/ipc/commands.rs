@@ -9,46 +9,85 @@ pub struct AppState {
 }
 
 #[tauri::command]
-pub async fn load_samples(
-    paths: Vec<String>,
+pub async fn load_sample_directory(
+    dir_path: Option<String>,
     state: State<'_, AppState>,
-) -> Result<(), String> {
-    let engine = state.engine.lock().map_err(|e| e.to_string())?;
-    
-    let mut sm = engine.sample_manager.write();
-    
-    for (i, path) in paths.iter().enumerate().take(11) {
-        let path = std::path::Path::new(path);
-        if let Err(e) = sm.load_sample(i, path) {
-            log::warn!("Failed to load sample {}: {}", path.display(), e);
+) -> Result<serde_json::Value, String> {
+    let dir = match dir_path {
+        Some(p) if !p.is_empty() => std::path::PathBuf::from(p),
+        _ => {
+            let folder = rfd::FileDialog::new()
+                .set_title("选择音频采样文件夹")
+                .pick_folder();
+            match folder {
+                Some(f) => f,
+                None => return Ok(serde_json::json!({"status": "cancelled"})),
+            }
         }
-    }
+    };
+
+    let dir_str = dir.to_string_lossy().to_string();
+
+    let engine = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut sm = engine.sample_manager.write();
+    sm.load_directory(&dir).map_err(|e| e.to_string())?;
     
     let duration = sm.get_duration();
     drop(sm);
     
     engine.playhead.set_total_duration(duration);
     
-    Ok(())
+    let extensions = ["mp3", "wav", "flac", "ogg", "aac", "m4a"];
+    let mut files: Vec<String> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        let mut entry_list: Vec<_> = entries.filter_map(|e| e.ok()).collect();
+        entry_list.sort_by_key(|e| e.file_name());
+        for entry in entry_list {
+            let path = entry.path();
+            if let Some(ext) = path.extension() {
+                if extensions.contains(&ext.to_string_lossy().to_lowercase().as_str()) {
+                    files.push(path.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+    files.truncate(11);
+    
+    Ok(serde_json::json!({
+        "status": "loaded",
+        "path": dir_str,
+        "files": files,
+        "duration": duration
+    }))
 }
 
 #[tauri::command]
-pub async fn load_sample_directory(
-    dir_path: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
-    let engine = state.engine.lock().map_err(|e| e.to_string())?;
-    let path = std::path::Path::new(&dir_path);
-    
-    let mut sm = engine.sample_manager.write();
-    sm.load_directory(path).map_err(|e| e.to_string())?;
-    
-    let duration = sm.get_duration();
-    drop(sm);
-    
-    engine.playhead.set_total_duration(duration);
-    
-    Ok(())
+pub async fn list_audio_files(dir_path: String) -> Result<Vec<String>, String> {
+    let dir = std::path::Path::new(&dir_path);
+    if !dir.is_dir() {
+        return Err("Not a directory".to_string());
+    }
+    let extensions = ["mp3", "wav", "flac", "ogg", "aac", "m4a"];
+    let mut files: Vec<String> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        let mut entry_list: Vec<_> = entries.filter_map(|e| e.ok()).collect();
+        entry_list.sort_by_key(|e| e.file_name());
+        for entry in entry_list {
+            let path = entry.path();
+            if let Some(ext) = path.extension() {
+                if extensions.contains(&ext.to_string_lossy().to_lowercase().as_str()) {
+                    files.push(path.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+    files.truncate(11);
+    Ok(files)
+}
+
+#[tauri::command]
+pub async fn read_audio_file(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(&path).map_err(|e| format!("Failed to read {}: {}", path, e))
 }
 
 #[tauri::command]

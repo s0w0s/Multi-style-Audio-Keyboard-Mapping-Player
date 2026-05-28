@@ -105,10 +105,16 @@ body{
 
 /* BPM区 */
 .bpm-col{display:flex;flex-direction:column;align-items:center;gap:8px;width:120px}
-.bpm-display{
-  font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:700;
-  color:var(--accent);line-height:1;
+.bpm-input{
+  font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;
+  color:var(--accent);line-height:1;text-align:center;
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  width:80px;padding:6px 4px;outline:none;
 }
+.bpm-input:focus{border-color:var(--accent);box-shadow:0 0 8px rgba(0,212,255,0.3)}
+.bpm-input::-webkit-inner-spin-button,
+.bpm-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.bpm-input{-moz-appearance:textfield}
 .bpm-beat{
   width:12px;height:12px;border-radius:50%;background:var(--surface2);
   transition:background .05s,box-shadow .05s;
@@ -328,7 +334,6 @@ body{
   </div>
   <div class="menu-trigger" data-menu="tools">工具
     <div class="menu-dropdown" id="menuTools">
-      <div class="menu-item" data-action="bpmdetect">BPM 检测</div>
       <div class="menu-item" data-action="midi">MIDI 设置</div>
       <div class="menu-item" data-action="audiodev">音频设备</div>
     </div>
@@ -376,11 +381,9 @@ body{
     <!-- BPM区 -->
     <div class="bpm-col">
       <div class="bpm-label">BPM</div>
-      <div class="bpm-display" id="bpmDisplay">128</div>
+      <input type="number" id="bpmInput" class="bpm-input" value="128" min="30" max="300" step="1">
       <div class="bpm-beat" id="bpmBeat"></div>
       <div class="bpm-btn" id="tapBtn">TAP</div>
-      <div class="bpm-btn" id="autoBtn">AUTO</div>
-      <div class="bpm-btn" id="recBtn">● REC</div>
     </div>
   </div>
 
@@ -511,9 +514,6 @@ let playheadPos = 0;
 let DURATION = 8;
 let bpm = 128;
 let lastBeatTime = 0;
-let autoMode = false;
-let isRecording = false;
-let autoTimer = null;
 let animFrame = null;
 let faderValue = 75;
 
@@ -922,7 +922,6 @@ document.addEventListener('keydown', (e) => {
     activatePad(keyMap[k]);
   }
   if (k === ' ') { e.preventDefault(); stopAll(); }
-  if (k === 'tab') { e.preventDefault(); toggleAuto(); }
 });
 document.addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
@@ -1035,43 +1034,21 @@ document.getElementById('tapBtn').addEventListener('click', () => {
     let sum = 0;
     for (let i = 1; i < tapTimes.length; i++) sum += tapTimes[i] - tapTimes[i - 1];
     bpm = Math.round(60000 / (sum / (tapTimes.length - 1)));
-    bpm = Math.max(60, Math.min(200, bpm));
-    document.getElementById('bpmDisplay').textContent = bpm;
+    bpm = Math.max(30, Math.min(300, bpm));
+    document.getElementById('bpmInput').value = bpm;
   }
 });
 
-// ── 自动切换 ──
-function toggleAuto() {
-  autoMode = !autoMode;
-  const btn = document.getElementById('autoBtn');
-  btn.classList.toggle('active', autoMode);
-  if (autoMode) startAutoSwitch();
-  else clearInterval(autoTimer);
-}
+document.getElementById('bpmInput').addEventListener('change', (e) => {
+  const val = parseInt(e.target.value, 10);
+  if (!isNaN(val)) {
+    bpm = Math.max(30, Math.min(300, val));
+    e.target.value = bpm;
+  }
+});
 
-function startAutoSwitch() {
-  clearInterval(autoTimer);
-  const doSwitch = () => {
-    if (!autoMode) return;
-    const beats = [1, 2, 3, 4];
-    const beatCount = beats[Math.floor(Math.random() * beats.length)];
-    const interval = (60 / bpm) * beatCount * 1000;
-    let nextId;
-    do { nextId = Math.floor(Math.random() * 11) + 1; } while (nextId === activeStyle);
-    activatePad(nextId);
-    autoTimer = setTimeout(doSwitch, interval);
-  };
-  doSwitch();
-}
-
-document.getElementById('autoBtn').addEventListener('click', toggleAuto);
-
-// ── 录制按钮 ──
-document.getElementById('recBtn').addEventListener('click', () => {
-  isRecording = !isRecording;
-  const btn = document.getElementById('recBtn');
-  btn.classList.toggle('recording', isRecording);
-  document.getElementById('statusText').textContent = isRecording ? '录制中' : '就绪';
+document.getElementById('bpmInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') e.target.blur();
 });
 
 // ── 停止/重置 ──
@@ -1278,15 +1255,6 @@ function executeMenuAction(action) {
       document.getElementById('loopStartVal').textContent = '0.0s';
       document.getElementById('loopMarker').style.left = '0%';
       document.getElementById('statusText').textContent = '布局已重置';
-    },
-    'bpmdetect': () => {
-      document.getElementById('statusText').textContent = 'BPM 检测中...';
-      setTimeout(() => {
-        const detected = 80 + Math.floor(Math.random() * 80);
-        bpm = detected;
-        document.getElementById('bpmDisplay').textContent = detected;
-        document.getElementById('statusText').textContent = `检测到 BPM: ${detected}`;
-      }, 800);
     },
     'midi': () => {
       showModal('MIDI 设置', '当前状态: 未连接\n\n支持的设备:\n• 任何兼容 MIDI 控制器\n• 通过 USB 或蓝牙连接\n\n请在系统设置中配置 MIDI 设备后重启应用');

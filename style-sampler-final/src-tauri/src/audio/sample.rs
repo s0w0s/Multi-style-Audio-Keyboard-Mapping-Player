@@ -111,18 +111,23 @@ impl SampleManager {
     }
 
     pub fn load_directory(&mut self, dir_path: &Path) -> Result<()> {
+        let extensions = ["mp3", "wav", "flac", "ogg", "aac", "m4a"];
         let mut entries: Vec<_> = std::fs::read_dir(dir_path)?
             .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.path().extension()
+                    .and_then(|ext| ext.to_str())
+                    .map(|ext| extensions.contains(&ext.to_lowercase().as_str()))
+                    .unwrap_or(false)
+            })
             .collect();
         
         entries.sort_by_key(|e| e.file_name());
         
         for (i, entry) in entries.iter().enumerate().take(11) {
             let path = entry.path();
-            if path.is_file() {
-                if let Err(e) = self.load_sample(i, &path) {
-                    log::warn!("Failed to load {}: {}", path.display(), e);
-                }
+            if let Err(e) = self.load_sample(i, &path) {
+                log::warn!("Failed to load {}: {}", path.display(), e);
             }
         }
         
@@ -134,10 +139,16 @@ impl SampleManager {
     }
 
     pub fn get_duration(&self) -> f32 {
-        self.samples[0]
-            .as_ref()
-            .map(|s| s.read().duration)
-            .unwrap_or(0.0)
+        let mut max_dur = 0.0;
+        for sample in &self.samples {
+            if let Some(s) = sample {
+                let dur = s.read().duration;
+                if dur > max_dur {
+                    max_dur = dur;
+                }
+            }
+        }
+        max_dur
     }
 }
 

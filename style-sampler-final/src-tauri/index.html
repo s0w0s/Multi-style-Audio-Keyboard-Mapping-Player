@@ -547,12 +547,15 @@ function tauriInvoke(cmd, args) {
   } catch(e) {}
 }
 
-// ── Web Audio API 音频引擎 ──
+// ── Web Audio API 音频引擎（共享时间线模型） ──
 let audioCtx = null;
 let masterGain = null;
-let activeOscillators = {};
+let activeSource = null;
 let audioBuffers = [];
 let audioLoaded = false;
+let playheadStartTime = 0;
+let playheadOffset = 0;
+let currentPlaybackStyle = null;
 
 function initWebAudio() {
   if (audioCtx) return;
@@ -565,43 +568,90 @@ function initWebAudio() {
 const STYLE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 698.46];
 const STYLE_WAVES = ['sawtooth','square','triangle','sine','sawtooth','square','triangle','sine','sawtooth','square','triangle'];
 
-function playWebAudio(styleId) {
+function getPlayheadTime() {
+  if (!audioCtx || !isPlaying) return playheadOffset;
+  return playheadOffset + (audioCtx.currentTime - playheadStartTime);
+}
+
+function startPlaybackAt(styleId, offset) {
   initWebAudio();
   if (audioCtx.state === 'suspended') audioCtx.resume();
 
-  stopWebAudio();
+  stopCurrentSource();
 
   const idx = styleId - 1;
+  playheadOffset = offset;
+  playheadStartTime = audioCtx.currentTime;
+  currentPlaybackStyle = styleId;
+
   if (audioLoaded && audioBuffers[idx]) {
+    const buffer = audioBuffers[idx];
     const source = audioCtx.createBufferSource();
-    source.buffer = audioBuffers[idx];
-    source.loop = true;
+    source.buffer = buffer;
+    source.loop = false;
     source.connect(masterGain);
-    source.start(0);
-    activeOscillators[styleId] = source;
+
+    const clampedOffset = Math.max(0, Math.min(offset, buffer.duration - 0.001));
+    source.start(0, clampedOffset);
+    activeSource = source;
+
+    source.onended = () => {
+      if (currentPlaybackStyle === styleId && isPlaying) {
+        const loopMode = document.getElementById('loopMode').value;
+        const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
+        const pressed = pressedKeys.size > 0;
+        if (loopMode === 'always' || (loopMode === 'hold' && pressed)) {
+          playheadOffset = loopStart;
+          startPlaybackAt(styleId, loopStart);
+        } else {
+          isPlaying = false;
+          playheadOffset = DURATION;
+          currentPlaybackStyle = null;
+          document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
+          document.getElementById('statusText').textContent = '播放结束';
+        }
+      }
+    };
   } else {
     const osc = audioCtx.createOscillator();
     osc.type = STYLE_WAVES[idx] || 'sine';
     osc.frequency.value = STYLE_FREQS[idx] || 440;
-
     const oscGain = audioCtx.createGain();
     oscGain.gain.value = 0.25;
     osc.connect(oscGain);
     oscGain.connect(masterGain);
     osc.start(0);
-    activeOscillators[styleId] = { osc, gain: oscGain };
+    activeSource = { osc, gain: oscGain, isSynth: true };
   }
 }
 
-function stopWebAudio() {
-  for (const id in activeOscillators) {
+function stopCurrentSource() {
+  if (activeSource) {
     try {
-      const node = activeOscillators[id];
-      if (node instanceof OscillatorNode) { node.stop(); node.disconnect(); }
-      else if (node instanceof AudioBufferSourceNode) { node.stop(); node.disconnect(); }
-      else if (node.osc) { node.osc.stop(); node.osc.disconnect(); node.gain.disconnect(); }
+      if (activeSource instanceof AudioBufferSourceNode) {
+        activeSource.onended = null;
+        activeSource.stop();
+        activeSource.disconnect();
+      } else if (activeSource.isSynth) {
+        activeSource.osc.stop();
+        activeSource.osc.disconnect();
+        activeSource.gain.disconnect();
+      }
     } catch(e) {}
-    delete activeOscillators[id];
+    activeSource = null;
+  }
+}
+
+function switchStyle(styleId) {
+  const currentTime = getPlayheadTime();
+  startPlaybackAt(styleId, currentTime);
+}
+
+function pausePlayback() {
+  if (isPlaying) {
+    playheadOffset = getPlayheadTime();
+    stopCurrentSource();
+    currentPlaybackStyle = null;
   }
 }
 
@@ -633,25 +683,32 @@ function activatePad(id) {
   const style = STYLES.find(s => s.id === id);
   if (!style) return;
   activeStyle = id;
-  isPlaying = true;
   document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
   document.querySelector(`.pad[data-style="${id}"]`)?.classList.add('active');
   document.getElementById('currentStyle').textContent = `风格${String(id).padStart(2,'0')} · ${style.name}`;
   document.getElementById('currentStyle').style.color = style.color;
   document.getElementById('statusStyle').textContent = String(id).padStart(2,'0');
   document.getElementById('statusText').textContent = '播放中';
-  const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
-  if (playheadPos >= DURATION - 0.05) playheadPos = loopStart;
-  playWebAudio(id);
+
+  if (!isPlaying) {
+    isPlaying = true;
+    if (playheadOffset >= DURATION - 0.05) {
+      const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
+      playheadOffset = loopStart;
+    }
+    startPlaybackAt(id, playheadOffset);
+  } else {
+    switchStyle(id);
+  }
   tauriInvoke('play_style', { styleIndex: id - 1 });
 }
 
 function deactivatePad() {
   if (document.getElementById('triggerMode').value === 'gate') {
+    pausePlayback();
     isPlaying = false;
     document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
     document.getElementById('statusText').textContent = '暂停';
-    stopWebAudio();
     tauriInvoke('stop_all', {});
   }
 }
@@ -720,8 +777,7 @@ function animate(time) {
   lastTime = time;
 
   if (isPlaying) {
-    playheadPos += dt;
-    // 循环回跳
+    playheadPos = getPlayheadTime();
     if (playheadPos >= DURATION) {
       const loopMode = document.getElementById('loopMode').value;
       const loopStart = parseFloat(document.getElementById('loopStart').value) / 100 * DURATION;
@@ -731,7 +787,7 @@ function animate(time) {
         playheadPos = DURATION;
         isPlaying = false;
         document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
-        document.getElementById('statusText').textContent = '就绪';
+        document.getElementById('statusText').textContent = '播放结束';
       }
     }
   }
@@ -831,14 +887,16 @@ document.getElementById('recBtn').addEventListener('click', () => {
 
 // ── 停止/重置 ──
 function stopAll() {
+  pausePlayback();
   isPlaying = false;
   activeStyle = null;
   playheadPos = 0;
+  playheadOffset = 0;
+  currentPlaybackStyle = null;
   document.querySelectorAll('.pad').forEach(p => p.classList.remove('active'));
   document.getElementById('statusText').textContent = '就绪';
   document.getElementById('currentStyle').textContent = '未选择风格';
   document.getElementById('currentStyle').style.color = 'var(--text-dim)';
-  stopWebAudio();
   tauriInvoke('stop_all', {});
 }
 document.getElementById('stopBtn').addEventListener('click', stopAll);

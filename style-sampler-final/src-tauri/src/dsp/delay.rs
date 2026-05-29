@@ -63,5 +63,9 @@ impl Delay {
 
     pub fn update_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
+        let buffer_size = (sample_rate * 2.0) as usize;
+        self.buffer = vec![0.0; buffer_size];
+        self.write_pos = 0;
+        self.delay_samples = (sample_rate * self.time) as usize;
     }
 }

@@ -256,22 +256,40 @@ impl AudioEngine {
         *self.trigger_mode.write() = mode;
     }
 
-    pub fn set_effect_param(&self, effect: &str, _param: &str, value: f32) {
+    pub fn set_effect_param(&self, effect: &str, param: &str, value: f32) {
         match effect {
-            "filter" => {
-                self.lowpass.write().set_cutoff(value);
+            "lowpass" => {
+                let cutoff = 20.0 * (1000.0f32.powf(value / 100.0));
+                self.lowpass.write().set_cutoff(cutoff);
+            }
+            "highpass" => {
+                let cutoff = 20.0 * (100.0f32.powf(value / 100.0));
+                self.highpass.write().set_cutoff(cutoff);
             }
             "reverb" => {
-                self.reverb.write().set_mix(value / 100.0);
+                match param {
+                    "mix" => self.reverb.write().set_mix(value / 100.0),
+                    _ => self.reverb.write().set_mix(value / 100.0),
+                }
             }
             "delay" => {
-                self.delay.write().set_time(value / 100.0);
+                match param {
+                    "time" => self.delay.write().set_time(value / 100.0 * 2.0),
+                    "feedback" => self.delay.write().set_feedback(value / 100.0),
+                    "mix" => self.delay.write().set_mix(value / 100.0),
+                    _ => self.delay.write().set_time(value / 100.0 * 2.0),
+                }
             }
             "distortion" => {
                 self.distortion.write().set_amount(value / 100.0);
             }
             "chorus" => {
-                self.chorus.write().set_mix(value / 100.0);
+                match param {
+                    "mix" => self.chorus.write().set_mix(value / 100.0),
+                    "rate" => self.chorus.write().set_rate(value / 100.0 * 5.0),
+                    "depth" => self.chorus.write().set_depth(value / 100.0 * 0.01),
+                    _ => self.chorus.write().set_mix(value / 100.0),
+                }
             }
             _ => {}
         }

@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=A%20sleek%20dark-themed%20DJ%20sampler%20interface%20with%20neon%20accent%20colors%2C%20featuring%2011%20colorful%20pads%20arranged%20in%20a%20grid%2C%20a%20waveform%20display%2C%20LED%20level%20meters%2C%20rotary%20knobs%2C%20and%20a%20fader%20control.%20Professional%20audio%20equipment%20aesthetic%20with%20clean%20minimalist%20design%2C%20pixel%20art%20style%20banner%20for%20GitHub%20repository&image_size=landscape_16_9" alt="Style Sampler Banner" width="100%">
-</p>
-
 <h1 align="center">🎛️ Style Sampler</h1>
 <p align="center"><strong>多风格音频键盘映射播放器</strong></p>
 <p align="center">将 11 种不同曲风的音频片段映射到电脑键盘，实现实时演奏与无缝风格切换</p>
